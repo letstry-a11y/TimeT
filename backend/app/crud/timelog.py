@@ -1,0 +1,204 @@
+import uuid
+from datetime import datetime, date
+from typing import List, Optional
+from sqlalchemy import select, and_, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.time_log import TimeLog, TimeLogType
+from app.models.goal import Goal
+from app.schemas.timelog import TimeLogManual, TimeLogUpdate
+
+
+async def get_timelog(
+    db: AsyncSession, timelog_id: uuid.UUID, user_id: uuid.UUID
+) -> Optional[TimeLog]:
+    result = await db.execute(
+        select(TimeLog).where(
+            and_(TimeLog.id == timelog_id, TimeLog.user_id == user_id)
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_running_timelog(
+    db: AsyncSession, user_id: uuid.UUID
+) -> Optional[TimeLog]:
+    """Get the currently running time log for a user (if any)."""
+    result = await db.execute(
+        select(TimeLog).where(
+            and_(TimeLog.user_id == user_id, TimeLog.is_running == True)
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_timelogs(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 100,
+    goal_id: Optional[uuid.UUID] = None,
+    task_id: Optional[uuid.UUID] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    log_type: Optional[TimeLogType] = None,
+) -> List[TimeLog]:
+    query = select(TimeLog).where(TimeLog.user_id == user_id)
+
+    if goal_id is not None:
+        query = query.where(TimeLog.goal_id == goal_id)
+    if task_id is not None:
+        query = query.where(TimeLog.task_id == task_id)
+    if start_date is not None:
+        query = query.where(TimeLog.start_time >= datetime.combine(start_date, datetime.min.time()))
+    if end_date is not None:
+        query = query.where(TimeLog.start_time <= datetime.combine(end_date, datetime.max.time()))
+    if log_type is not None:
+        query = query.where(TimeLog.log_type == log_type)
+
+    query = query.order_by(TimeLog.start_time.desc())
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    return list(result.scalars().all())
+
+
+async def create_clock_in(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    goal_id: uuid.UUID,
+    task_id: Optional[uuid.UUID] = None,
+    note: Optional[str] = None,
+    tags: Optional[str] = None,
+) -> TimeLog:
+    timelog = TimeLog(
+        user_id=user_id,
+        goal_id=goal_id,
+        task_id=task_id,
+        log_type=TimeLogType.CLOCK_IN,
+        start_time=datetime.utcnow(),
+        note=note,
+        tags=tags,
+        is_running=True,
+    )
+    db.add(timelog)
+    await db.commit()
+    await db.refresh(timelog)
+    return timelog
+
+
+async def stop_clock_in(
+    db: AsyncSession,
+    timelog: TimeLog,
+    note: Optional[str] = None,
+) -> TimeLog:
+    end_time = datetime.utcnow()
+    timelog.end_time = end_time
+    timelog.is_running = False
+    timelog.duration_minutes = (end_time - timelog.start_time).total_seconds() / 60
+    if note is not None:
+        timelog.note = note
+
+    await db.commit()
+    await db.refresh(timelog)
+    return timelog
+
+
+async def create_manual_entry(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    timelog_in: TimeLogManual,
+) -> TimeLog:
+    timelog = TimeLog(
+        user_id=user_id,
+        goal_id=timelog_in.goal_id,
+        task_id=timelog_in.task_id,
+        log_type=TimeLogType.MANUAL,
+        start_time=timelog_in.start_time,
+        end_time=timelog_in.end_time,
+        duration_minutes=timelog_in.duration_minutes,
+        note=timelog_in.note,
+        tags=timelog_in.tags,
+        is_running=False,
+    )
+    db.add(timelog)
+    await db.commit()
+    await db.refresh(timelog)
+    return timelog
+
+
+async def update_timelog(
+    db: AsyncSession, timelog: TimeLog, timelog_in: TimeLogUpdate
+) -> TimeLog:
+    update_data = timelog_in.model_dump(exclude_unset=True)
+
+    # Recalculate duration if times changed
+    if "start_time" in update_data or "end_time" in update_data:
+        start = update_data.get("start_time", timelog.start_time)
+        end = update_data.get("end_time", timelog.end_time)
+        if start and end:
+            update_data["duration_minutes"] = (end - start).total_seconds() / 60
+
+    for field, value in update_data.items():
+        setattr(timelog, field, value)
+
+    await db.commit()
+    await db.refresh(timelog)
+    return timelog
+
+
+async def delete_timelog(db: AsyncSession, timelog: TimeLog) -> None:
+    await db.delete(timelog)
+    await db.commit()
+
+
+async def get_total_hours_for_goal(
+    db: AsyncSession, goal_id: uuid.UUID
+) -> float:
+    """Get total hours logged for a specific goal."""
+    result = await db.execute(
+        select(func.sum(TimeLog.duration_minutes))
+        .where(
+            and_(
+                TimeLog.goal_id == goal_id,
+                TimeLog.is_running == False,
+            )
+        )
+    )
+    total_minutes = result.scalar_one_or_none() or 0
+    return float(total_minutes) / 60
+
+
+async def get_stats(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    goal_id: Optional[uuid.UUID] = None,
+) -> dict:
+    """Get time tracking statistics."""
+    query = select(
+        func.sum(TimeLog.duration_minutes).label("total_minutes"),
+        func.count(TimeLog.id).label("log_count"),
+    ).where(
+        and_(
+            TimeLog.user_id == user_id,
+            TimeLog.is_running == False,
+        )
+    )
+
+    if goal_id:
+        query = query.where(TimeLog.goal_id == goal_id)
+    if start_date:
+        query = query.where(TimeLog.start_time >= datetime.combine(start_date, datetime.min.time()))
+    if end_date:
+        query = query.where(TimeLog.start_time <= datetime.combine(end_date, datetime.max.time()))
+
+    result = await db.execute(query)
+    row = result.one()
+
+    total_minutes = float(row.total_minutes or 0)
+
+    return {
+        "total_minutes": total_minutes,
+        "total_hours": total_minutes / 60,
+        "log_count": row.log_count or 0,
+    }

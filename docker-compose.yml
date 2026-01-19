@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://timetracker:${DB_PASSWORD}@postgres:5432/timetracker_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=False
+      - CORS_ORIGINS=["http://localhost","https://yourdomain.com"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=/api/v1
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Celery Worker
+  celery:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://timetracker:${DB_PASSWORD}@postgres:5432/timetracker_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.celery
+    command: celery -A app.worker.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://timetracker:${DB_PASSWORD}@postgres:5432/timetracker_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - celery
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_USER=timetracker
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=timetracker_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timetracker -d timetracker_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

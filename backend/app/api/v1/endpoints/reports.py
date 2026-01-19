@@ -1,0 +1,231 @@
+import uuid
+from datetime import date, datetime, timedelta
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from sqlalchemy import select, func, and_, cast, Date
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_db
+from app.api.deps import get_current_user
+from app.schemas.report import (
+    VisionAlignmentReport,
+    VisionAlignmentItem,
+    GoalProgressReport,
+    GoalProgressItem,
+    WeeklyReport,
+    DailyStats,
+)
+from app.models.user import User
+from app.models.vision import Vision
+from app.models.goal import Goal, GoalType
+from app.models.time_log import TimeLog
+
+router = APIRouter()
+
+
+@router.get("/vision-alignment", response_model=VisionAlignmentReport)
+async def get_vision_alignment_report(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get vision alignment report showing time distribution across visions.
+    """
+    # Get all visions for user
+    visions_result = await db.execute(
+        select(Vision).where(Vision.user_id == current_user.id)
+    )
+    visions = visions_result.scalars().all()
+
+    report_data = []
+    total_hours = 0
+
+    for vision in visions:
+        # Get all yearly goals under this vision
+        yearly_goals_result = await db.execute(
+            select(Goal).where(
+                and_(
+                    Goal.vision_id == vision.id,
+                    Goal.goal_type == GoalType.YEARLY,
+                )
+            )
+        )
+        yearly_goals = yearly_goals_result.scalars().all()
+
+        vision_hours = 0
+        for yearly_goal in yearly_goals:
+            # Get quarterly goals under yearly goal
+            quarterly_result = await db.execute(
+                select(Goal.id).where(Goal.parent_id == yearly_goal.id)
+            )
+            quarterly_ids = [row[0] for row in quarterly_result.all()]
+
+            if quarterly_ids:
+                # Sum time logs for quarterly goals
+                time_query = select(func.sum(TimeLog.duration_minutes)).where(
+                    and_(
+                        TimeLog.goal_id.in_(quarterly_ids),
+                        TimeLog.is_running == False,
+                    )
+                )
+                if start_date:
+                    time_query = time_query.where(
+                        TimeLog.start_time >= datetime.combine(start_date, datetime.min.time())
+                    )
+                if end_date:
+                    time_query = time_query.where(
+                        TimeLog.start_time <= datetime.combine(end_date, datetime.max.time())
+                    )
+
+                time_result = await db.execute(time_query)
+                minutes = time_result.scalar_one_or_none() or 0
+                vision_hours += float(minutes) / 60
+
+        total_hours += vision_hours
+        report_data.append(VisionAlignmentItem(
+            vision_id=str(vision.id),
+            vision_title=vision.title,
+            hours=round(vision_hours, 2),
+            percentage=0,
+        ))
+
+    # Calculate percentages
+    if total_hours > 0:
+        for item in report_data:
+            item.percentage = round((item.hours / total_hours) * 100, 2)
+
+    return VisionAlignmentReport(
+        generated_at=datetime.utcnow(),
+        total_hours=round(total_hours, 2),
+        data=report_data,
+    )
+
+
+@router.get("/goal-progress", response_model=GoalProgressReport)
+async def get_goal_progress_report(
+    year: int = Query(...),
+    quarter: Optional[int] = Query(None, ge=1, le=4),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get goal progress report for a specific year and optional quarter.
+    """
+    query = select(Goal).where(
+        and_(
+            Goal.user_id == current_user.id,
+            Goal.year == year,
+        )
+    )
+
+    if quarter:
+        query = query.where(Goal.quarter == quarter)
+
+    result = await db.execute(query.order_by(Goal.goal_type, Goal.sort_order))
+    goals = result.scalars().all()
+
+    report_data = []
+    for goal in goals:
+        report_data.append(GoalProgressItem(
+            goal_id=str(goal.id),
+            title=goal.title,
+            goal_type=goal.goal_type.value,
+            status=goal.status.value,
+            target_hours=float(goal.target_hours) if goal.target_hours else None,
+            accumulated_hours=float(goal.accumulated_hours),
+            progress_percentage=float(goal.progress_percentage),
+            quarter=goal.quarter,
+        ))
+
+    return GoalProgressReport(
+        generated_at=datetime.utcnow(),
+        year=year,
+        quarter=quarter,
+        data=report_data,
+    )
+
+
+@router.get("/weekly", response_model=WeeklyReport)
+async def get_weekly_report(
+    week_start: Optional[date] = Query(None, description="Start date of the week (Monday)"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get weekly time tracking report.
+    If week_start is not provided, uses the current week.
+    """
+    if week_start is None:
+        today = date.today()
+        week_start = today - timedelta(days=today.weekday())
+
+    week_end = week_start + timedelta(days=6)
+
+    # Get daily breakdown
+    daily_stats = []
+    for i in range(7):
+        day = week_start + timedelta(days=i)
+        day_start = datetime.combine(day, datetime.min.time())
+        day_end = datetime.combine(day, datetime.max.time())
+
+        result = await db.execute(
+            select(
+                func.sum(TimeLog.duration_minutes).label("total_minutes"),
+                func.count(TimeLog.id).label("log_count"),
+            ).where(
+                and_(
+                    TimeLog.user_id == current_user.id,
+                    TimeLog.start_time >= day_start,
+                    TimeLog.start_time <= day_end,
+                    TimeLog.is_running == False,
+                )
+            )
+        )
+        row = result.one()
+
+        daily_stats.append(DailyStats(
+            date=day,
+            hours=round(float(row.total_minutes or 0) / 60, 2),
+            log_count=row.log_count or 0,
+        ))
+
+    total_hours = sum(d.hours for d in daily_stats)
+
+    # Get top goals for the week
+    top_goals_result = await db.execute(
+        select(
+            Goal.id,
+            Goal.title,
+            func.sum(TimeLog.duration_minutes).label("total_minutes"),
+        )
+        .join(TimeLog, TimeLog.goal_id == Goal.id)
+        .where(
+            and_(
+                TimeLog.user_id == current_user.id,
+                TimeLog.start_time >= datetime.combine(week_start, datetime.min.time()),
+                TimeLog.start_time <= datetime.combine(week_end, datetime.max.time()),
+                TimeLog.is_running == False,
+            )
+        )
+        .group_by(Goal.id, Goal.title)
+        .order_by(func.sum(TimeLog.duration_minutes).desc())
+        .limit(5)
+    )
+
+    top_goals = [
+        {
+            "goal_id": str(row.id),
+            "title": row.title,
+            "hours": round(float(row.total_minutes or 0) / 60, 2),
+        }
+        for row in top_goals_result.all()
+    ]
+
+    return WeeklyReport(
+        start_date=week_start,
+        end_date=week_end,
+        total_hours=round(total_hours, 2),
+        daily_breakdown=daily_stats,
+        top_goals=top_goals,
+    )
