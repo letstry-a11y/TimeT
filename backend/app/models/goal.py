@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime, date
 from enum import Enum
+from typing import Optional
 from sqlalchemy import String, Text, DateTime, Date, ForeignKey, Integer, Numeric, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
+from app.db.types import GUID
 
 
 class GoalType(str, Enum):
@@ -24,20 +25,20 @@ class Goal(Base):
     __tablename__ = "goals"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    vision_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("visions.id", ondelete="SET NULL"), nullable=True
+    vision_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        GUID(), ForeignKey("visions.id", ondelete="SET NULL"), nullable=True
     )
-    parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("goals.id", ondelete="CASCADE"), nullable=True
+    parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        GUID(), ForeignKey("goals.id", ondelete="CASCADE"), nullable=True
     )
 
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     goal_type: Mapped[GoalType] = mapped_column(
         SQLEnum(GoalType), nullable=False, default=GoalType.QUARTERLY
     )
@@ -47,17 +48,17 @@ class Goal(Base):
 
     # Time frame
     year: Mapped[int] = mapped_column(Integer, nullable=False)
-    quarter: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-4 for quarterly goals
-    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    quarter: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-4 for quarterly goals
+    start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     # Target and progress
-    target_hours: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    target_hours: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     accumulated_hours: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     progress_percentage: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
 
     # UI
-    color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_archived: Mapped[bool] = mapped_column(default=False)
 
