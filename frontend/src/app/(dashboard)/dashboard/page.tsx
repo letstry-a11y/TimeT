@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useAuthStore } from "@/store/auth";
@@ -8,7 +9,7 @@ import { useVisions } from "@/hooks/useVisions";
 import { useGoals } from "@/hooks/useGoals";
 import { useTimelogs } from "@/hooks/useTimelogs";
 import { reportApi } from "@/lib/api";
-import { getCurrentYear, getCurrentQuarter, formatDuration, getStatusLabel, getStatusColor } from "@/lib/utils";
+import { getCurrentYear, getCurrentQuarter, formatDuration, getStatusColor } from "@/lib/utils";
 import { Target, Flag, Clock, TrendingUp, Play } from "lucide-react";
 import Link from "next/link";
 import { WeeklyReport } from "@/types";
@@ -19,6 +20,10 @@ export default function DashboardPage() {
   const { goals } = useGoals({ year: getCurrentYear() });
   const { currentSession } = useTimelogs();
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const t = useTranslations("dashboard");
+  const tCommon = useTranslations("common");
+  const tStatus = useTranslations("status");
+  const locale = useLocale();
 
   useEffect(() => {
     const fetchWeeklyReport = async () => {
@@ -40,10 +45,10 @@ export default function DashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          你好，{user?.username}！
+          {t("greeting", { name: user?.username })}
         </h1>
         <p className="text-gray-500 mt-1">
-          {getCurrentYear()} 年 Q{getCurrentQuarter()} · 让每一分钟都有意义
+          {t("slogan", { year: getCurrentYear(), quarter: getCurrentQuarter() })}
         </p>
       </div>
 
@@ -56,7 +61,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{visions.length}</p>
-              <p className="text-sm text-gray-500">愿景</p>
+              <p className="text-sm text-gray-500">{t("visions")}</p>
             </div>
           </div>
         </Card>
@@ -68,7 +73,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{quarterlyGoals.length}</p>
-              <p className="text-sm text-gray-500">本季度目标</p>
+              <p className="text-sm text-gray-500">{t("quarterlyGoals")}</p>
             </div>
           </div>
         </Card>
@@ -82,7 +87,7 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold">
                 {weeklyReport ? `${weeklyReport.total_hours.toFixed(1)}h` : "-"}
               </p>
-              <p className="text-sm text-gray-500">本周投入</p>
+              <p className="text-sm text-gray-500">{t("weeklyHours")}</p>
             </div>
           </div>
         </Card>
@@ -98,7 +103,7 @@ export default function DashboardPage() {
                   ? `${(quarterlyGoals.reduce((sum, g) => sum + g.progress_percentage, 0) / quarterlyGoals.length).toFixed(0)}%`
                   : "-"}
               </p>
-              <p className="text-sm text-gray-500">平均进度</p>
+              <p className="text-sm text-gray-500">{t("avgProgress")}</p>
             </div>
           </div>
         </Card>
@@ -113,9 +118,9 @@ export default function DashboardPage() {
                 <Play className="h-4 w-4 text-white" />
               </div>
               <div>
-                <p className="font-medium text-green-800">正在进行中</p>
+                <p className="font-medium text-green-800">{t("inProgress")}</p>
                 <p className="text-sm text-green-600">
-                  开始于 {new Date(currentSession.start_time).toLocaleTimeString("zh-CN")}
+                  {t("startedAt", { time: new Date(currentSession.start_time).toLocaleTimeString(locale === "zh-CN" ? "zh-CN" : "en-US") })}
                 </p>
               </div>
             </div>
@@ -123,7 +128,7 @@ export default function DashboardPage() {
               href="/tracker"
               className="btn-primary text-sm"
             >
-              查看详情
+              {tCommon("viewDetails")}
             </Link>
           </div>
         </Card>
@@ -133,16 +138,16 @@ export default function DashboardPage() {
         {/* Quarterly Goals */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">本季度目标</h2>
+            <h2 className="text-lg font-semibold">{t("quarterlyGoals")}</h2>
             <Link href="/goals" className="text-sm text-primary-600 hover:text-primary-700">
-              查看全部
+              {tCommon("viewAll")}
             </Link>
           </div>
           {quarterlyGoals.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
-              还没有本季度目标，
+              {t("noQuarterlyGoals")}
               <Link href="/goals" className="text-primary-600 hover:underline">
-                去创建
+                {tCommon("goCreate")}
               </Link>
             </p>
           ) : (
@@ -152,7 +157,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm">{goal.title}</span>
                     <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(goal.status)}`}>
-                      {getStatusLabel(goal.status)}
+                      {tStatus(goal.status)}
                     </span>
                   </div>
                   <ProgressBar
@@ -162,7 +167,7 @@ export default function DashboardPage() {
                   />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
                     <span>{formatDuration(goal.accumulated_hours * 60)}</span>
-                    <span>{goal.target_hours ? `目标 ${goal.target_hours}h` : "无目标"}</span>
+                    <span>{goal.target_hours ? `${tCommon("target")} ${goal.target_hours}h` : tCommon("noTarget")}</span>
                   </div>
                 </div>
               ))}
@@ -173,9 +178,9 @@ export default function DashboardPage() {
         {/* Weekly Breakdown */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">本周时间分布</h2>
+            <h2 className="text-lg font-semibold">{t("weeklyDistribution")}</h2>
             <Link href="/reports" className="text-sm text-primary-600 hover:text-primary-700">
-              查看报表
+              {tCommon("viewReports")}
             </Link>
           </div>
           {weeklyReport ? (
@@ -183,7 +188,7 @@ export default function DashboardPage() {
               {weeklyReport.daily_breakdown.map((day) => (
                 <div key={day.date} className="flex items-center gap-3">
                   <span className="text-sm text-gray-500 w-20">
-                    {new Date(day.date).toLocaleDateString("zh-CN", { weekday: "short" })}
+                    {new Date(day.date).toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", { weekday: "short" })}
                   </span>
                   <div className="flex-1">
                     <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
@@ -200,23 +205,23 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">加载中...</p>
+            <p className="text-gray-500 text-center py-8">{tCommon("loading")}</p>
           )}
         </Card>
 
         {/* Visions Overview */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">愿景概览</h2>
+            <h2 className="text-lg font-semibold">{t("visionOverview")}</h2>
             <Link href="/visions" className="text-sm text-primary-600 hover:text-primary-700">
-              管理愿景
+              {tCommon("manage")}
             </Link>
           </div>
           {visions.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
-              还没有愿景，
+              {t("noVisions")}
               <Link href="/visions" className="text-primary-600 hover:underline">
-                去创建
+                {tCommon("goCreate")}
               </Link>
             </p>
           ) : (
@@ -246,7 +251,7 @@ export default function DashboardPage() {
 
         {/* Top Goals This Week */}
         <Card>
-          <h2 className="text-lg font-semibold mb-4">本周投入最多</h2>
+          <h2 className="text-lg font-semibold mb-4">{t("topGoalsThisWeek")}</h2>
           {weeklyReport && weeklyReport.top_goals.length > 0 ? (
             <div className="space-y-3">
               {weeklyReport.top_goals.map((goal, index) => (
@@ -264,7 +269,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">本周还没有时间记录</p>
+            <p className="text-gray-500 text-center py-8">{t("noRecordsThisWeek")}</p>
           )}
         </Card>
       </div>
