@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -15,19 +16,22 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useState } from "react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
-const navigation = [
-  { name: "仪表盘", href: "/dashboard", icon: LayoutDashboard },
-  { name: "愿景", href: "/visions", icon: Target },
-  { name: "目标", href: "/goals", icon: Flag },
-  { name: "时间追踪", href: "/tracker", icon: Clock },
-  { name: "报表", href: "/reports", icon: BarChart3 },
+const navigationItems = [
+  { key: "dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { key: "visions", href: "/visions", icon: Target },
+  { key: "goals", href: "/goals", icon: Flag },
+  { key: "tracker", href: "/tracker", icon: Clock },
+  { key: "reports", href: "/reports", icon: BarChart3 },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const t = useTranslations("nav");
+  const tAuth = useTranslations("auth");
 
   const handleLogout = () => {
     logout();
@@ -64,10 +68,10 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2">
         <ul className="space-y-1">
-          {navigation.map((item) => {
+          {navigationItems.map((item) => {
             const isActive = pathname === item.href;
             return (
-              <li key={item.name}>
+              <li key={item.key}>
                 <Link
                   href={item.href}
                   className={cn(
@@ -78,7 +82,7 @@ export function Sidebar() {
                   )}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span>{item.name}</span>}
+                  {!collapsed && <span>{t(item.key)}</span>}
                 </Link>
               </li>
             );
@@ -86,14 +90,15 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* User */}
-      <div className="p-4 border-t border-gray-200">
+      {/* User & Settings */}
+      <div className="p-4 border-t border-gray-200 space-y-2">
         {!collapsed && user && (
           <div className="mb-3 px-2">
             <p className="font-medium text-sm text-gray-900 truncate">{user.username}</p>
             <p className="text-xs text-gray-500 truncate">{user.email}</p>
           </div>
         )}
+        <LanguageSwitcher collapsed={collapsed} />
         <button
           onClick={handleLogout}
           className={cn(
@@ -102,7 +107,7 @@ export function Sidebar() {
           )}
         >
           <LogOut className="h-5 w-5" />
-          {!collapsed && <span>退出登录</span>}
+          {!collapsed && <span>{tAuth("logout")}</span>}
         </button>
       </div>
     </aside>

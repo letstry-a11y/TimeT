@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { setTokens, setUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
+  const t = useTranslations("auth");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -26,11 +28,11 @@ export default function LoginPage() {
     setErrors({});
 
     if (!formData.email) {
-      setErrors((prev) => ({ ...prev, email: "请输入邮箱" }));
+      setErrors((prev) => ({ ...prev, email: t("enterEmail") }));
       return;
     }
     if (!formData.password) {
-      setErrors((prev) => ({ ...prev, password: "请输入密码" }));
+      setErrors((prev) => ({ ...prev, password: t("enterPassword") }));
       return;
     }
 
@@ -42,10 +44,10 @@ export default function LoginPage() {
       const user = await authApi.getMe();
       setUser(user);
 
-      toast.success("登录成功！");
+      toast.success(t("loginSuccess"));
       router.push("/dashboard");
     } catch (error: any) {
-      const message = error.response?.data?.detail || "登录失败，请检查邮箱和密码";
+      const message = error.response?.data?.detail || t("loginFailed");
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -59,15 +61,15 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
             <Clock className="h-8 w-8 text-primary-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">欢迎回来</h1>
-          <p className="text-gray-500 mt-1">登录您的 TimeTracker 账户</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("welcomeBack")}</h1>
+          <p className="text-gray-500 mt-1">{t("loginToAccount")}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="email"
             type="email"
-            label="邮箱"
+            label={t("email")}
             placeholder="your@email.com"
             value={formData.email}
             onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
@@ -77,7 +79,7 @@ export default function LoginPage() {
           <Input
             id="password"
             type="password"
-            label="密码"
+            label={t("password")}
             placeholder="••••••••"
             value={formData.password}
             onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
@@ -85,14 +87,14 @@ export default function LoginPage() {
           />
 
           <Button type="submit" className="w-full" isLoading={isLoading}>
-            登录
+            {t("login")}
           </Button>
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          还没有账户？{" "}
+          {t("noAccount")}{" "}
           <Link href="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-            立即注册
+            {t("registerNow")}
           </Link>
         </div>
       </Card>

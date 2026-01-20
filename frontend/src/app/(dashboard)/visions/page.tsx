@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -25,6 +26,9 @@ export default function VisionsPage() {
     target_year: new Date().getFullYear() + 5,
     color: COLORS[0],
   });
+
+  const t = useTranslations("visions");
+  const tCommon = useTranslations("common");
 
   const handleOpenCreate = () => {
     setEditingVision(null);
@@ -63,7 +67,7 @@ export default function VisionsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("确定要删除这个愿景吗？关联的目标也会被删除。")) {
+    if (window.confirm(t("deleteConfirm"))) {
       await deleteVision(id);
     }
   };
@@ -81,12 +85,12 @@ export default function VisionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">愿景管理</h1>
-          <p className="text-gray-500 mt-1">定义你的长期愿景，让每一天都有方向</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
+          <p className="text-gray-500 mt-1">{t("subtitle")}</p>
         </div>
         <Button onClick={handleOpenCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          创建愿景
+          {t("createVision")}
         </Button>
       </div>
 
@@ -94,11 +98,11 @@ export default function VisionsPage() {
       {visions.length === 0 ? (
         <Card className="text-center py-12">
           <Target className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">还没有愿景</h3>
-          <p className="text-gray-500 mb-4">创建你的第一个愿景，开始规划未来</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t("noVisions")}</h3>
+          <p className="text-gray-500 mb-4">{t("noVisionsHint")}</p>
           <Button onClick={handleOpenCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            创建愿景
+            {t("createVision")}
           </Button>
         </Card>
       ) : (
@@ -140,7 +144,7 @@ export default function VisionsPage() {
                 )}
                 {vision.target_year && (
                   <p className="text-xs text-gray-400 mt-3">
-                    目标年份：{vision.target_year}
+                    {t("targetYearLabel", { year: vision.target_year })}
                   </p>
                 )}
               </div>
@@ -153,13 +157,13 @@ export default function VisionsPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingVision ? "编辑愿景" : "创建愿景"}
+        title={editingVision ? t("editVision") : t("createVision")}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="title"
-            label="愿景标题"
-            placeholder="例如：成为领域专家"
+            label={t("visionTitle")}
+            placeholder={t("visionTitlePlaceholder")}
             value={formData.title}
             onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
             required
@@ -167,12 +171,12 @@ export default function VisionsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              描述
+              {t("visionDescription")}
             </label>
             <textarea
               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               rows={3}
-              placeholder="描述你的愿景..."
+              placeholder={t("visionDescriptionPlaceholder")}
               value={formData.description}
               onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
             />
@@ -181,14 +185,14 @@ export default function VisionsPage() {
           <Input
             id="target_year"
             type="number"
-            label="目标年份"
+            label={t("targetYear")}
             value={formData.target_year}
             onChange={(e) => setFormData((prev) => ({ ...prev, target_year: parseInt(e.target.value) }))}
           />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              颜色
+              {t("color")}
             </label>
             <div className="flex gap-2 flex-wrap">
               {COLORS.map((color) => (
@@ -207,10 +211,10 @@ export default function VisionsPage() {
 
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1">
-              取消
+              {tCommon("cancel")}
             </Button>
             <Button type="submit" className="flex-1">
-              {editingVision ? "保存" : "创建"}
+              {editingVision ? tCommon("save") : tCommon("create")}
             </Button>
           </div>
         </form>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -13,6 +14,7 @@ import { Clock } from "lucide-react";
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const t = useTranslations("auth");
   const [formData, setFormData] = useState({
     email: "",
     username: "",
@@ -25,25 +27,25 @@ export default function RegisterPage() {
     const newErrors: Record<string, string> = {};
 
     if (!formData.email) {
-      newErrors.email = "请输入邮箱";
+      newErrors.email = t("enterEmail");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "请输入有效的邮箱地址";
+      newErrors.email = t("invalidEmail");
     }
 
     if (!formData.username) {
-      newErrors.username = "请输入用户名";
+      newErrors.username = t("enterUsername");
     } else if (formData.username.length < 3) {
-      newErrors.username = "用户名至少3个字符";
+      newErrors.username = t("usernameMin");
     }
 
     if (!formData.password) {
-      newErrors.password = "请输入密码";
+      newErrors.password = t("enterPassword");
     } else if (formData.password.length < 8) {
-      newErrors.password = "密码至少8个字符";
+      newErrors.password = t("passwordMin");
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "两次密码不一致";
+      newErrors.confirmPassword = t("passwordMismatch");
     }
 
     setErrors(newErrors);
@@ -58,10 +60,10 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       await authApi.register(formData.email, formData.username, formData.password);
-      toast.success("注册成功！请登录");
+      toast.success(t("registerSuccess"));
       router.push("/login");
     } catch (error: any) {
-      const message = error.response?.data?.detail || "注册失败，请稍后重试";
+      const message = error.response?.data?.detail || t("registerFailed");
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -75,15 +77,15 @@ export default function RegisterPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
             <Clock className="h-8 w-8 text-primary-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">创建账户</h1>
-          <p className="text-gray-500 mt-1">开始追踪您的时间</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("createAccount")}</h1>
+          <p className="text-gray-500 mt-1">{t("startTrackingTime")}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="email"
             type="email"
-            label="邮箱"
+            label={t("email")}
             placeholder="your@email.com"
             value={formData.email}
             onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
@@ -93,8 +95,8 @@ export default function RegisterPage() {
           <Input
             id="username"
             type="text"
-            label="用户名"
-            placeholder="至少3个字符"
+            label={t("username")}
+            placeholder={t("usernamePlaceholder")}
             value={formData.username}
             onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
             error={errors.username}
@@ -103,8 +105,8 @@ export default function RegisterPage() {
           <Input
             id="password"
             type="password"
-            label="密码"
-            placeholder="至少8个字符"
+            label={t("password")}
+            placeholder={t("passwordPlaceholder")}
             value={formData.password}
             onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
             error={errors.password}
@@ -113,22 +115,22 @@ export default function RegisterPage() {
           <Input
             id="confirmPassword"
             type="password"
-            label="确认密码"
-            placeholder="再次输入密码"
+            label={t("confirmPassword")}
+            placeholder={t("confirmPasswordPlaceholder")}
             value={formData.confirmPassword}
             onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
             error={errors.confirmPassword}
           />
 
           <Button type="submit" className="w-full" isLoading={isLoading}>
-            注册
+            {t("register")}
           </Button>
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          已有账户？{" "}
+          {t("hasAccount")}{" "}
           <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-            立即登录
+            {t("loginNow")}
           </Link>
         </div>
       </Card>
