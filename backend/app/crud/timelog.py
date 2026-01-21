@@ -3,9 +3,9 @@ from datetime import datetime, date
 from typing import List, Optional
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.time_log import TimeLog, TimeLogType
+from app.models.time_log import TimeLog, TimeLogType, TimeLogStatus
 from app.models.goal import Goal
-from app.schemas.timelog import TimeLogManual, TimeLogUpdate
+from app.schemas.timelog import TimeLogManual, TimeLogUpdate, TimeLogPlanned
 
 
 async def get_timelog(
@@ -120,6 +120,43 @@ async def create_manual_entry(
         is_running=False,
     )
     db.add(timelog)
+    await db.commit()
+    await db.refresh(timelog)
+    return timelog
+
+
+async def create_planned(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    timelog_in: TimeLogPlanned,
+) -> TimeLog:
+    """Create a planned task entry."""
+    timelog = TimeLog(
+        user_id=user_id,
+        goal_id=timelog_in.goal_id,
+        task_id=timelog_in.task_id,
+        log_type=TimeLogType.PLANNED,
+        status=TimeLogStatus.PENDING,
+        start_time=timelog_in.start_time,
+        end_time=timelog_in.end_time,
+        duration_minutes=timelog_in.duration_minutes,
+        note=timelog_in.note,
+        tags=timelog_in.tags,
+        is_running=False,
+    )
+    db.add(timelog)
+    await db.commit()
+    await db.refresh(timelog)
+    return timelog
+
+
+async def update_status(
+    db: AsyncSession,
+    timelog: TimeLog,
+    status: TimeLogStatus,
+) -> TimeLog:
+    """Update the status of a planned task."""
+    timelog.status = status
     await db.commit()
     await db.refresh(timelog)
     return timelog

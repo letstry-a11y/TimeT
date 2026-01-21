@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { timelogApi } from "@/lib/api";
-import { TimeLog, TimeLogStart, TimeLogManual } from "@/types";
+import { TimeLog, TimeLogStart, TimeLogManual, TimeLogPlanned, TimeLogStatus } from "@/types";
 import { getTranslation, useLanguageStore } from "@/i18n";
 import toast from "react-hot-toast";
 
@@ -82,6 +82,42 @@ export function useTimelogs(filters?: TimelogFilters) {
     }
   };
 
+  const createPlanned = async (data: TimeLogPlanned) => {
+    try {
+      const newLog = await timelogApi.createPlanned(data);
+      setTimelogs((prev) => [newLog, ...prev]);
+      toast.success(t('tracker.planSuccess'));
+      return newLog;
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('tracker.planFailed'));
+      throw err;
+    }
+  };
+
+  const updateStatus = async (id: string, status: TimeLogStatus) => {
+    try {
+      const updated = await timelogApi.updateStatus(id, status);
+      setTimelogs((prev) => prev.map((log) => (log.id === id ? updated : log)));
+      toast.success(t('tracker.statusUpdateSuccess'));
+      return updated;
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('tracker.statusUpdateFailed'));
+      throw err;
+    }
+  };
+
+  const updateTimelog = async (id: string, data: Partial<TimeLog>) => {
+    try {
+      const updated = await timelogApi.update(id, data);
+      setTimelogs((prev) => prev.map((log) => (log.id === id ? updated : log)));
+      toast.success(t('tracker.updateSuccess'));
+      return updated;
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('tracker.updateFailed'));
+      throw err;
+    }
+  };
+
   const deleteTimelog = async (id: string) => {
     try {
       await timelogApi.delete(id);
@@ -108,6 +144,9 @@ export function useTimelogs(filters?: TimelogFilters) {
     startSession,
     stopSession,
     createManual,
+    createPlanned,
+    updateStatus,
+    updateTimelog,
     deleteTimelog,
   };
 }

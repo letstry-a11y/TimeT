@@ -185,6 +185,10 @@ export default function GoalsPage() {
               { value: (currentYear - 1).toString(), label: locale === 'zh-CN' ? `${currentYear - 1}年` : `${currentYear - 1}` },
               { value: currentYear.toString(), label: locale === 'zh-CN' ? `${currentYear}年` : `${currentYear}` },
               { value: (currentYear + 1).toString(), label: locale === 'zh-CN' ? `${currentYear + 1}年` : `${currentYear + 1}` },
+              { value: (currentYear + 2).toString(), label: locale === 'zh-CN' ? `${currentYear + 2}年` : `${currentYear + 2}` },
+              { value: (currentYear + 3).toString(), label: locale === 'zh-CN' ? `${currentYear + 3}年` : `${currentYear + 3}` },
+              { value: (currentYear + 4).toString(), label: locale === 'zh-CN' ? `${currentYear + 4}年` : `${currentYear + 4}` },
+              { value: (currentYear + 5).toString(), label: locale === 'zh-CN' ? `${currentYear + 5}年` : `${currentYear + 5}` },
             ]}
             className="w-32"
           />

@@ -148,6 +148,7 @@ export interface Translations {
     unknownGoal: string;
     clockIn: string;
     manual: string;
+    planned: string;
     deleteConfirm: string;
     startSuccess: string;
     startFailed: string;
@@ -158,6 +159,30 @@ export interface Translations {
     deleteSuccess: string;
     deleteFailed: string;
     loadFailed: string;
+    createPlan: string;
+    planStartTime: string;
+    planEndTime: string;
+    planNotePlaceholder: string;
+    planSuccess: string;
+    planFailed: string;
+    statusUpdateSuccess: string;
+    statusUpdateFailed: string;
+    markCompleted: string;
+    markNotCompleted: string;
+    statusPending: string;
+    statusCompleted: string;
+    statusNotCompleted: string;
+    dayView: string;
+    weekView: string;
+    view: string;
+    today: string;
+    prevWeek: string;
+    nextWeek: string;
+    totalDayHours: string;
+    editRecord: string;
+    editPlan: string;
+    updateSuccess: string;
+    updateFailed: string;
   };
 
   visions: {

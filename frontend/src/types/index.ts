@@ -94,7 +94,8 @@ export interface GoalCreate {
 }
 
 // TimeLog types
-export type TimeLogType = "clock_in" | "manual";
+export type TimeLogType = "clock_in" | "manual" | "planned";
+export type TimeLogStatus = "pending" | "completed" | "not_completed";
 
 export interface TimeLog {
   id: string;
@@ -102,6 +103,7 @@ export interface TimeLog {
   goal_id: string;
   task_id?: string;
   log_type: TimeLogType;
+  status?: TimeLogStatus;
   start_time: string;
   end_time?: string;
   duration_minutes?: number;
@@ -126,6 +128,19 @@ export interface TimeLogManual {
   end_time: string;
   note?: string;
   tags?: string;
+}
+
+export interface TimeLogPlanned {
+  goal_id: string;
+  task_id?: string;
+  start_time: string;
+  end_time: string;
+  note?: string;
+  tags?: string;
+}
+
+export interface TimeLogStatusUpdate {
+  status: TimeLogStatus;
 }
 
 export interface TimeLogStats {

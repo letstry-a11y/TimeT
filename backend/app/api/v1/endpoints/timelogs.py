@@ -8,10 +8,12 @@ from app.api.deps import get_current_user
 from app.schemas.timelog import (
     TimeLogStart,
     TimeLogManual,
+    TimeLogPlanned,
     TimeLogStop,
     TimeLogUpdate,
     TimeLogResponse,
     TimeLogStats,
+    TimeLogStatusUpdate,
 )
 from app.crud import timelog as timelog_crud
 from app.services.time_tracking import (
@@ -20,7 +22,7 @@ from app.services.time_tracking import (
     update_goal_accumulated_hours,
 )
 from app.models.user import User
-from app.models.time_log import TimeLogType
+from app.models.time_log import TimeLogType, TimeLogStatus
 
 router = APIRouter()
 
@@ -138,6 +140,58 @@ async def create_manual_entry(
 
     # Update goal accumulated hours
     await update_goal_accumulated_hours(db, timelog.goal_id)
+
+    return timelog
+
+
+@router.post("/planned", response_model=TimeLogResponse, status_code=status.HTTP_201_CREATED)
+async def create_planned_entry(
+    timelog_in: TimeLogPlanned,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create a planned task entry.
+    - Time can only be planned for quarterly goals
+    - Planned tasks start with 'pending' status
+    """
+    # Validate goal
+    await validate_goal_for_tracking(db, current_user.id, timelog_in.goal_id)
+
+    timelog = await timelog_crud.create_planned(db, current_user.id, timelog_in)
+
+    return timelog
+
+
+@router.patch("/{timelog_id}/status", response_model=TimeLogResponse)
+async def update_timelog_status(
+    timelog_id: uuid.UUID,
+    status_update: TimeLogStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update the status of a planned task.
+    - Only planned tasks can have their status updated
+    """
+    timelog = await timelog_crud.get_timelog(db, timelog_id, current_user.id)
+    if timelog is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Time log not found",
+        )
+
+    if timelog.log_type != TimeLogType.PLANNED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only planned tasks can have their status updated",
+        )
+
+    timelog = await timelog_crud.update_status(db, timelog, status_update.status)
+
+    # Update goal accumulated hours if status changed to completed
+    if status_update.status == TimeLogStatus.COMPLETED:
+        await update_goal_accumulated_hours(db, timelog.goal_id)
 
     return timelog
 

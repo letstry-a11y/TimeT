@@ -1,0 +1,93 @@
+  Summary of Changes
+
+  Backend (Phase 1)
+
+  1. Model (backend/app/models/time_log.py)
+  - Added TimeLogStatus enum with values: PENDING, COMPLETED, NOT_COMPLETED
+  - Added PLANNED to TimeLogType enum
+  - Added status field to TimeLog model
+
+  2. Schema (backend/app/schemas/timelog.py)
+  - Added TimeLogPlanned schema for creating planned tasks
+  - Added TimeLogStatusUpdate schema for updating task status
+  - Added status field to TimeLogResponse
+
+  3. CRUD (backend/app/crud/timelog.py)
+  - Added create_planned() function for creating planned entries
+  - Added update_status() function for updating task status
+
+  4. API (backend/app/api/v1/endpoints/timelogs.py)
+  - Added POST /timelogs/planned endpoint
+  - Added PATCH /timelogs/{id}/status endpoint
+
+  5. Migration (backend/alembic/versions/002_add_timelog_status.py)
+  - Created migration to add status column to time_logs table
+
+  Frontend (Phase 2 & 3)
+
+  1. Types (frontend/src/types/index.ts)
+  - Added TimeLogStatus type
+  - Updated TimeLogType to include "planned"
+  - Added TimeLogPlanned and TimeLogStatusUpdate interfaces
+
+  2. API (frontend/src/lib/api.ts)
+  - Added createPlanned() method
+  - Added updateStatus() method
+
+  3. Hook (frontend/src/hooks/useTimelogs.ts)
+  - Added createPlanned() function
+  - Added updateStatus() function
+
+  4. Utilities (frontend/src/lib/utils.ts)
+  - Added date utilities: getWeekDates(), formatWeekRange(), formatDayHeader(), isSameDay(), toDateString(), formatTimeOnly()
+
+  5. Tracker Page (frontend/src/app/(dashboard)/tracker/page.tsx)
+  - Complete UI refactor with:
+    - Day/Week view toggle
+    - Date navigation (prev/next day/week, today button)
+    - Records grouped by day with day totals
+    - "Create Plan" button and modal
+    - Status indicators for planned tasks
+    - Mark complete/incomplete buttons for pending tasks
+
+  Internationalization (Phase 4)
+
+  Updated files:
+  - frontend/src/i18n/locales/zh-CN.ts - Chinese translations
+  - frontend/src/i18n/locales/en-US.ts - English translations
+  - frontend/src/i18n/types.ts - TypeScript type definitions
+
+  To Apply Database Migration
+
+  Run the following command in the backend directory:
+  cd backend
+  alembic upgrade head
+
+  Or for SQLite, you may need to manually add the column:
+  ALTER TABLE time_logs ADD COLUMN status VARCHAR(20);
+
+● 两个服务都已成功启动！
+
+  服务状态
+
+  Backend API Server
+  - 地址: http://localhost:8000
+  - 状态: ✓ 运行中
+
+  Frontend Dev Server
+  - 地址: http://localhost:3000
+  - 状态: ✓ 运行中
+
+  访问应用
+
+  在浏览器中打开 http://localhost:3000 即可访问时间追踪器应用。
+
+  新功能说明
+
+  在"时间追踪"页面，你现在可以：
+
+  1. 创建计划 - 点击右上角"创建计划"按钮，预先安排某个时间段的工作
+  2. 天/周视图切换 - 使用右侧的"按天"/"按周"按钮切换视图
+  3. 日期导航 - 使用左右箭头浏览不同日期，点击"今天"快速回到当天
+  4. 标记计划状态 - 对于待完成的计划任务，可以点击 ✓ 标记完成或 ✗ 标记未完成
+  5. 按天分组显示 - 记录按日期分组，每天显示总计时长
