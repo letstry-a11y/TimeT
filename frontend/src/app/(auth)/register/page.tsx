@@ -3,18 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { authApi } from "@/lib/api";
+import { useTranslation } from "@/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import toast from "react-hot-toast";
 import { Clock } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-  const t = useTranslations("auth");
   const [formData, setFormData] = useState({
     email: "",
     username: "",
@@ -27,25 +28,25 @@ export default function RegisterPage() {
     const newErrors: Record<string, string> = {};
 
     if (!formData.email) {
-      newErrors.email = t("enterEmail");
+      newErrors.email = t('auth.emailRequired');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = t("invalidEmail");
+      newErrors.email = t('auth.emailInvalid');
     }
 
     if (!formData.username) {
-      newErrors.username = t("enterUsername");
+      newErrors.username = t('auth.usernameRequired');
     } else if (formData.username.length < 3) {
-      newErrors.username = t("usernameMin");
+      newErrors.username = t('auth.usernameMinLength');
     }
 
     if (!formData.password) {
-      newErrors.password = t("enterPassword");
+      newErrors.password = t('auth.passwordRequired');
     } else if (formData.password.length < 8) {
-      newErrors.password = t("passwordMin");
+      newErrors.password = t('auth.passwordMinLength');
     }
 
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = t("passwordMismatch");
+      newErrors.confirmPassword = t('auth.passwordMismatch');
     }
 
     setErrors(newErrors);
@@ -60,10 +61,10 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       await authApi.register(formData.email, formData.username, formData.password);
-      toast.success(t("registerSuccess"));
+      toast.success(t('auth.registerSuccess'));
       router.push("/login");
     } catch (error: any) {
-      const message = error.response?.data?.detail || t("registerFailed");
+      const message = error.response?.data?.detail || t('auth.registerFailed');
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -72,21 +73,24 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 px-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher className="bg-white shadow-sm" />
+      </div>
       <Card className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
             <Clock className="h-8 w-8 text-primary-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("createAccount")}</h1>
-          <p className="text-gray-500 mt-1">{t("startTrackingTime")}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('auth.createAccount')}</h1>
+          <p className="text-gray-500 mt-1">{t('auth.startTracking')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="email"
             type="email"
-            label={t("email")}
-            placeholder="your@email.com"
+            label={t('auth.email')}
+            placeholder={t('auth.emailPlaceholder')}
             value={formData.email}
             onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
             error={errors.email}
@@ -95,8 +99,8 @@ export default function RegisterPage() {
           <Input
             id="username"
             type="text"
-            label={t("username")}
-            placeholder={t("usernamePlaceholder")}
+            label={t('auth.username')}
+            placeholder={t('auth.usernamePlaceholder')}
             value={formData.username}
             onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
             error={errors.username}
@@ -105,8 +109,8 @@ export default function RegisterPage() {
           <Input
             id="password"
             type="password"
-            label={t("password")}
-            placeholder={t("passwordPlaceholder")}
+            label={t('auth.password')}
+            placeholder={t('auth.passwordPlaceholder')}
             value={formData.password}
             onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
             error={errors.password}
@@ -115,22 +119,22 @@ export default function RegisterPage() {
           <Input
             id="confirmPassword"
             type="password"
-            label={t("confirmPassword")}
-            placeholder={t("confirmPasswordPlaceholder")}
+            label={t('auth.confirmPassword')}
+            placeholder={t('auth.confirmPasswordPlaceholder')}
             value={formData.confirmPassword}
             onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
             error={errors.confirmPassword}
           />
 
           <Button type="submit" className="w-full" isLoading={isLoading}>
-            {t("register")}
+            {t('auth.register')}
           </Button>
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          {t("hasAccount")}{" "}
+          {t('auth.hasAccount')}{" "}
           <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-            {t("loginNow")}
+            {t('auth.loginNow')}
           </Link>
         </div>
       </Card>

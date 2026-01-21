@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { visionApi } from "@/lib/api";
 import { Vision, VisionCreate } from "@/types";
+import { getTranslation, useLanguageStore } from "@/i18n";
 import toast from "react-hot-toast";
+
+const t = (key: string) => getTranslation(useLanguageStore.getState().locale, key);
 
 export function useVisions() {
   const [visions, setVisions] = useState<Vision[]>([]);
@@ -18,7 +21,7 @@ export function useVisions() {
       setVisions(data);
     } catch (err: any) {
       setError(err.message);
-      toast.error("加载愿景失败");
+      toast.error(t('visions.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -28,10 +31,10 @@ export function useVisions() {
     try {
       const newVision = await visionApi.create(data);
       setVisions((prev) => [...prev, newVision]);
-      toast.success("愿景创建成功");
+      toast.success(t('visions.createSuccess'));
       return newVision;
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "创建失败");
+      toast.error(err.response?.data?.detail || t('visions.createFailed'));
       throw err;
     }
   };
@@ -40,10 +43,10 @@ export function useVisions() {
     try {
       const updated = await visionApi.update(id, data);
       setVisions((prev) => prev.map((v) => (v.id === id ? updated : v)));
-      toast.success("愿景更新成功");
+      toast.success(t('visions.updateSuccess'));
       return updated;
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "更新失败");
+      toast.error(err.response?.data?.detail || t('visions.updateFailed'));
       throw err;
     }
   };
@@ -52,9 +55,9 @@ export function useVisions() {
     try {
       await visionApi.delete(id);
       setVisions((prev) => prev.filter((v) => v.id !== id));
-      toast.success("愿景已删除");
+      toast.success(t('visions.deleteSuccess'));
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error(err.response?.data?.detail || t('visions.deleteFailed'));
       throw err;
     }
   };

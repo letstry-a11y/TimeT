@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, Square, Pause } from "lucide-react";
+import { Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { formatTime } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 
 interface TimerProps {
   isRunning: boolean;
@@ -15,6 +15,7 @@ interface TimerProps {
 
 export function Timer({ isRunning, startTime, onStart, onStop, disabled }: TimerProps) {
   const [elapsed, setElapsed] = useState(0);
+  const { t } = useTranslation();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -57,7 +58,7 @@ export function Timer({ isRunning, startTime, onStart, onStop, disabled }: Timer
           className="w-40 h-14 text-lg"
         >
           <Square className="h-6 w-6 mr-2" />
-          停止
+          {t('timer.stop')}
         </Button>
       ) : (
         <Button
@@ -67,7 +68,7 @@ export function Timer({ isRunning, startTime, onStart, onStop, disabled }: Timer
           className="w-40 h-14 text-lg"
         >
           <Play className="h-6 w-6 mr-2" />
-          开始
+          {t('timer.start')}
         </Button>
       )}
     </div>
