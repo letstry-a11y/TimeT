@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,8 +9,49 @@ import { Modal } from "@/components/ui/Modal";
 import { Timer } from "@/components/Timer";
 import { useGoals } from "@/hooks/useGoals";
 import { useTimelogs } from "@/hooks/useTimelogs";
-import { getCurrentYear, getCurrentQuarter, formatDateTime, formatDuration } from "@/lib/utils";
-import { Clock, Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "@/i18n";
+import {
+  getCurrentYear,
+  formatDuration,
+  getWeekDates,
+  formatWeekRange,
+  formatDayHeader,
+  isSameDay,
+  toDateString,
+  formatTimeOnly,
+} from "@/lib/utils";
+import { TimeLog, TimeLogStatus } from "@/types";
+import {
+  Clock,
+  Plus,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Check,
+  X,
+  Timer as TimerIcon,
+  FileText,
+  CalendarClock,
+  Pencil,
+} from "lucide-react";
+
+type ViewMode = "day" | "week";
+
+interface DayGroup {
+  date: Date;
+  dateStr: string;
+  logs: TimeLog[];
+  totalMinutes: number;
+}
+
+// Helper to convert ISO string to datetime-local format
+const toDateTimeLocal = (isoString: string) => {
+  const date = new Date(isoString);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 16);
+};
 
 export default function TrackerPage() {
   const { goals } = useGoals({ year: getCurrentYear(), goal_type: "quarterly" });
@@ -22,24 +62,48 @@ export default function TrackerPage() {
     startSession,
     stopSession,
     createManual,
+    createPlanned,
+    updateStatus,
+    updateTimelog,
     deleteTimelog,
     refetch,
   } = useTimelogs();
+  const { t, locale } = useTranslation();
 
-  const t = useTranslations("tracker");
-  const tCommon = useTranslations("common");
-
+  // State for timer section
   const [selectedGoalId, setSelectedGoalId] = useState("");
   const [note, setNote] = useState("");
+
+  // State for view mode and date navigation
+  const [viewMode, setViewMode] = useState<ViewMode>("day");
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // State for modals
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [manualData, setManualData] = useState({
     goal_id: "",
     start_time: "",
     end_time: "",
     note: "",
   });
+  const [planData, setPlanData] = useState({
+    goal_id: "",
+    start_time: "",
+    end_time: "",
+    note: "",
+  });
+  const [editData, setEditData] = useState<{
+    id: string;
+    goal_id: string;
+    start_time: string;
+    end_time: string;
+    note: string;
+    log_type: string;
+  } | null>(null);
 
-  // Set default goal when goals load
+  // Initialize goal selection
   useEffect(() => {
     if (goals.length > 0 && !selectedGoalId) {
       setSelectedGoalId(goals[0].id);
@@ -47,8 +111,91 @@ export default function TrackerPage() {
     if (goals.length > 0 && !manualData.goal_id) {
       setManualData((prev) => ({ ...prev, goal_id: goals[0].id }));
     }
-  }, [goals, selectedGoalId, manualData.goal_id]);
+    if (goals.length > 0 && !planData.goal_id) {
+      setPlanData((prev) => ({ ...prev, goal_id: goals[0].id }));
+    }
+  }, [goals, selectedGoalId, manualData.goal_id, planData.goal_id]);
 
+  // Get week dates for current view
+  const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
+
+  // Group timelogs by day
+  const groupedLogs = useMemo(() => {
+    const groups: DayGroup[] = [];
+    const dateMap = new Map<string, DayGroup>();
+
+    // Sort logs by start_time descending
+    const sortedLogs = [...timelogs].sort(
+      (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+    );
+
+    for (const log of sortedLogs) {
+      const logDate = new Date(log.start_time);
+      const dateStr = toDateString(logDate);
+
+      // Filter by date range based on view mode
+      if (viewMode === "day") {
+        if (!isSameDay(logDate, currentDate)) continue;
+      } else {
+        if (logDate < weekDates.start || logDate > weekDates.end) continue;
+      }
+
+      if (!dateMap.has(dateStr)) {
+        const dayGroup: DayGroup = {
+          date: new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate()),
+          dateStr,
+          logs: [],
+          totalMinutes: 0,
+        };
+        dateMap.set(dateStr, dayGroup);
+        groups.push(dayGroup);
+      }
+
+      const group = dateMap.get(dateStr)!;
+      group.logs.push(log);
+      // Only count completed logs (not planned pending/not_completed)
+      if (log.duration_minutes && (log.log_type !== "planned" || log.status === "completed")) {
+        group.totalMinutes += log.duration_minutes;
+      }
+    }
+
+    // Sort groups by date descending
+    groups.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    // Sort logs within each group by start_time
+    for (const group of groups) {
+      group.logs.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    }
+
+    return groups;
+  }, [timelogs, currentDate, viewMode, weekDates]);
+
+  // Navigation handlers
+  const navigatePrev = () => {
+    const newDate = new Date(currentDate);
+    if (viewMode === "day") {
+      newDate.setDate(newDate.getDate() - 1);
+    } else {
+      newDate.setDate(newDate.getDate() - 7);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const navigateNext = () => {
+    const newDate = new Date(currentDate);
+    if (viewMode === "day") {
+      newDate.setDate(newDate.getDate() + 1);
+    } else {
+      newDate.setDate(newDate.getDate() + 7);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Timer handlers
   const handleStart = async () => {
     if (!selectedGoalId) return;
     await startSession({ goal_id: selectedGoalId, note: note || undefined });
@@ -62,6 +209,7 @@ export default function TrackerPage() {
     refetch();
   };
 
+  // Manual entry handler
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualData.goal_id || !manualData.start_time || !manualData.end_time) return;
@@ -82,9 +230,127 @@ export default function TrackerPage() {
     });
   };
 
+  // Planned task handler
+  const handlePlanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!planData.goal_id || !planData.start_time || !planData.end_time) return;
+
+    await createPlanned({
+      goal_id: planData.goal_id,
+      start_time: new Date(planData.start_time).toISOString(),
+      end_time: new Date(planData.end_time).toISOString(),
+      note: planData.note || undefined,
+    });
+
+    setIsPlanModalOpen(false);
+    setPlanData({
+      goal_id: goals[0]?.id || "",
+      start_time: "",
+      end_time: "",
+      note: "",
+    });
+  };
+
+  // Edit handler - open modal with log data
+  const handleOpenEdit = (log: TimeLog) => {
+    setEditData({
+      id: log.id,
+      goal_id: log.goal_id,
+      start_time: toDateTimeLocal(log.start_time),
+      end_time: log.end_time ? toDateTimeLocal(log.end_time) : "",
+      note: log.note || "",
+      log_type: log.log_type,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  // Edit submit handler
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editData || !editData.goal_id || !editData.start_time || !editData.end_time) return;
+
+    const startTime = new Date(editData.start_time);
+    const endTime = new Date(editData.end_time);
+    const durationMinutes = (endTime.getTime() - startTime.getTime()) / 1000 / 60;
+
+    await updateTimelog(editData.id, {
+      goal_id: editData.goal_id,
+      start_time: startTime.toISOString(),
+      end_time: endTime.toISOString(),
+      duration_minutes: durationMinutes,
+      note: editData.note || undefined,
+    });
+
+    setIsEditModalOpen(false);
+    setEditData(null);
+  };
+
+  // Status update handlers
+  const handleMarkCompleted = async (id: string) => {
+    await updateStatus(id, "completed");
+  };
+
+  const handleMarkNotCompleted = async (id: string) => {
+    await updateStatus(id, "not_completed");
+  };
+
+  // Delete handler
   const handleDelete = async (id: string) => {
-    if (window.confirm(t("deleteConfirm"))) {
+    if (window.confirm(t("tracker.deleteConfirm"))) {
       await deleteTimelog(id);
+    }
+  };
+
+  // Get log type icon and label
+  const getLogTypeInfo = (log: TimeLog) => {
+    switch (log.log_type) {
+      case "clock_in":
+        return {
+          icon: <TimerIcon className="h-4 w-4" />,
+          label: t("tracker.clockIn"),
+          bgColor: "bg-blue-100 text-blue-700",
+        };
+      case "manual":
+        return {
+          icon: <FileText className="h-4 w-4" />,
+          label: t("tracker.manual"),
+          bgColor: "bg-gray-100 text-gray-700",
+        };
+      case "planned":
+        return {
+          icon: <CalendarClock className="h-4 w-4" />,
+          label: t("tracker.planned"),
+          bgColor: "bg-purple-100 text-purple-700",
+        };
+      default:
+        return {
+          icon: <Clock className="h-4 w-4" />,
+          label: log.log_type,
+          bgColor: "bg-gray-100 text-gray-700",
+        };
+    }
+  };
+
+  // Get status display
+  const getStatusDisplay = (status: TimeLogStatus | undefined) => {
+    switch (status) {
+      case "pending":
+        return {
+          label: t("tracker.statusPending"),
+          className: "text-yellow-600",
+        };
+      case "completed":
+        return {
+          label: t("tracker.statusCompleted"),
+          className: "text-green-600",
+        };
+      case "not_completed":
+        return {
+          label: t("tracker.statusNotCompleted"),
+          className: "text-red-600",
+        };
+      default:
+        return null;
     }
   };
 
@@ -95,28 +361,33 @@ export default function TrackerPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
-          <p className="text-gray-500 mt-1">{t("subtitle")}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("tracker.title")}</h1>
+          <p className="text-gray-500 mt-1">{t("tracker.description")}</p>
         </div>
-        <Button variant="secondary" onClick={() => setIsManualModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t("manualEntry")}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setIsPlanModalOpen(true)}>
+            <CalendarClock className="h-4 w-4 mr-2" />
+            {t("tracker.createPlan")}
+          </Button>
+          <Button variant="secondary" onClick={() => setIsManualModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t("tracker.manualEntry")}
+          </Button>
+        </div>
       </div>
 
       {/* Timer Section */}
       <Card className="py-8">
         <div className="max-w-md mx-auto">
-          {/* Goal Selector */}
           {!currentSession && (
             <div className="mb-8">
               <Select
                 id="goal"
-                label={t("selectGoal")}
+                label={t("tracker.selectGoal")}
                 value={selectedGoalId}
                 onChange={(e) => setSelectedGoalId(e.target.value)}
                 options={[
-                  { value: "", label: t("selectGoalPlaceholder") },
+                  { value: "", label: t("tracker.selectQuarterlyGoal") },
                   ...goals.map((g) => ({
                     value: g.id,
                     label: `Q${g.quarter}: ${g.title}`,
@@ -126,17 +397,15 @@ export default function TrackerPage() {
             </div>
           )}
 
-          {/* Current Goal Display */}
           {currentSession && currentGoal && (
             <div className="text-center mb-6">
-              <p className="text-sm text-gray-500">{t("tracking")}</p>
+              <p className="text-sm text-gray-500">{t("dashboard.inProgress")}</p>
               <p className="text-lg font-semibold text-primary-600">
                 Q{currentGoal.quarter}: {currentGoal.title}
               </p>
             </div>
           )}
 
-          {/* Timer */}
           <Timer
             isRunning={!!currentSession}
             startTime={currentSession?.start_time}
@@ -145,12 +414,11 @@ export default function TrackerPage() {
             disabled={!selectedGoalId || goals.length === 0}
           />
 
-          {/* Note Input */}
           <div className="mt-8">
             <Input
               id="note"
-              label={t("note")}
-              placeholder={t("notePlaceholder")}
+              label={t("tracker.note")}
+              placeholder={t("tracker.notePlaceholder")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -158,80 +426,211 @@ export default function TrackerPage() {
         </div>
       </Card>
 
-      {/* Recent Logs */}
+      {/* Records Section */}
       <Card>
+        {/* Navigation Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">{t("recentLogs")}</h2>
-          <span className="text-sm text-gray-500">
-            {t("totalRecords", { count: timelogs.length })}
-          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={navigatePrev}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-lg font-medium min-w-[200px] text-center">
+              {viewMode === "day"
+                ? formatDayHeader(currentDate, locale)
+                : formatWeekRange(weekDates.start, weekDates.end, locale)}
+            </span>
+            <Button variant="secondary" size="sm" onClick={navigateNext}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={goToToday}>
+              {t("tracker.today")}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 mr-2">{t("tracker.view")}:</span>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setViewMode("day")}
+                className={`px-3 py-1.5 text-sm ${
+                  viewMode === "day"
+                    ? "bg-primary-600 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {t("tracker.dayView")}
+              </button>
+              <button
+                onClick={() => setViewMode("week")}
+                className={`px-3 py-1.5 text-sm ${
+                  viewMode === "week"
+                    ? "bg-primary-600 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {t("tracker.weekView")}
+              </button>
+            </div>
+          </div>
         </div>
 
+        {/* Records List */}
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
           </div>
-        ) : timelogs.length === 0 ? (
+        ) : groupedLogs.length === 0 ? (
           <div className="text-center py-8">
             <Clock className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">{t("noLogs")}</p>
+            <p className="text-gray-500">{t("tracker.noRecords")}</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {timelogs.slice(0, 10).map((log) => {
-              const goal = goals.find((g) => g.id === log.goal_id);
-              return (
-                <div
-                  key={log.id}
-                  className={`p-4 rounded-lg border ${
-                    log.is_running ? "border-green-200 bg-green-50" : "border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        {log.is_running && (
-                          <span className="flex h-2 w-2">
-                            <span className="animate-ping absolute h-2 w-2 rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative rounded-full h-2 w-2 bg-green-500"></span>
-                          </span>
-                        )}
-                        <span className="font-medium">
-                          {goal ? `Q${goal.quarter}: ${goal.title}` : t("unknownGoal")}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${
-                          log.log_type === "clock_in" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
-                        }`}>
-                          {log.log_type === "clock_in" ? t("clockIn") : t("manual")}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {formatDateTime(log.start_time)}
-                        {log.end_time && ` - ${formatDateTime(log.end_time)}`}
-                      </div>
-                      {log.note && (
-                        <p className="text-sm text-gray-600 mt-1">{log.note}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {log.duration_minutes && (
-                        <span className="text-lg font-semibold text-primary-600">
-                          {formatDuration(log.duration_minutes)}
-                        </span>
-                      )}
-                      {!log.is_running && (
-                        <button
-                          onClick={() => handleDelete(log.id)}
-                          className="p-1.5 hover:bg-red-50 rounded-lg"
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </button>
-                      )}
-                    </div>
+          <div className="space-y-6">
+            {groupedLogs.map((group) => (
+              <div key={group.dateStr}>
+                {/* Day Header */}
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                    <span className="font-medium text-gray-900">
+                      {formatDayHeader(group.date, locale)}
+                    </span>
                   </div>
+                  <span className="text-sm text-gray-500">
+                    {t("tracker.totalDayHours")}: {formatDuration(group.totalMinutes, locale)}
+                  </span>
                 </div>
-              );
-            })}
+
+                {/* Day's Logs */}
+                <div className="space-y-3">
+                  {group.logs.map((log) => {
+                    const goal = goals.find((g) => g.id === log.goal_id);
+                    const typeInfo = getLogTypeInfo(log);
+                    const statusDisplay =
+                      log.log_type === "planned" ? getStatusDisplay(log.status) : null;
+
+                    return (
+                      <div
+                        key={log.id}
+                        className={`p-4 rounded-lg border ${
+                          log.is_running
+                            ? "border-green-200 bg-green-50"
+                            : log.log_type === "planned" && log.status === "pending"
+                            ? "border-yellow-200 bg-yellow-50"
+                            : "border-gray-200"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Running indicator */}
+                              {log.is_running && (
+                                <span className="flex h-2 w-2">
+                                  <span className="animate-ping absolute h-2 w-2 rounded-full bg-green-400 opacity-75"></span>
+                                  <span className="relative rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                              )}
+
+                              {/* Time range */}
+                              <span className="text-sm text-gray-500 font-mono">
+                                {formatTimeOnly(log.start_time)}
+                                {log.end_time && `-${formatTimeOnly(log.end_time)}`}
+                              </span>
+
+                              {/* Goal */}
+                              <span className="font-medium">
+                                {goal ? `Q${goal.quarter}: ${goal.title}` : t("tracker.unknownGoal")}
+                              </span>
+
+                              {/* Log type badge */}
+                              <span
+                                className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded ${typeInfo.bgColor}`}
+                              >
+                                {typeInfo.icon}
+                                {typeInfo.label}
+                              </span>
+
+                              {/* Status for planned tasks */}
+                              {statusDisplay && (
+                                <span className={`text-sm font-medium ${statusDisplay.className}`}>
+                                  {log.status === "completed" && <Check className="inline h-4 w-4 mr-1" />}
+                                  {log.status === "not_completed" && <X className="inline h-4 w-4 mr-1" />}
+                                  {statusDisplay.label}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Note */}
+                            {log.note && <p className="text-sm text-gray-600 mt-1">{log.note}</p>}
+                          </div>
+
+                          {/* Right side: Duration and actions */}
+                          <div className="flex items-center gap-2 ml-4">
+                            {/* Duration (only for completed entries) */}
+                            {log.duration_minutes &&
+                              (log.log_type !== "planned" || log.status === "completed") && (
+                                <span className="text-lg font-semibold text-primary-600">
+                                  {formatDuration(log.duration_minutes, locale)}
+                                </span>
+                              )}
+
+                            {/* Planned duration for pending tasks */}
+                            {log.log_type === "planned" &&
+                              log.status === "pending" &&
+                              log.duration_minutes && (
+                                <span className="text-lg font-semibold text-gray-400">
+                                  {formatDuration(log.duration_minutes, locale)}
+                                </span>
+                              )}
+
+                            {/* Status action buttons for pending planned tasks */}
+                            {log.log_type === "planned" && log.status === "pending" && (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleMarkCompleted(log.id)}
+                                  className="p-1.5 hover:bg-green-100 rounded-lg text-green-600"
+                                  title={t("tracker.markCompleted")}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleMarkNotCompleted(log.id)}
+                                  className="p-1.5 hover:bg-red-100 rounded-lg text-red-600"
+                                  title={t("tracker.markNotCompleted")}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Edit button - show for all non-running logs */}
+                            {!log.is_running && (
+                              <button
+                                onClick={() => handleOpenEdit(log)}
+                                className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600"
+                                title={t("tracker.editPlan")}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            )}
+
+                            {/* Delete button */}
+                            {!log.is_running && (
+                              <button
+                                onClick={() => handleDelete(log.id)}
+                                className="p-1.5 hover:bg-red-50 rounded-lg"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Card>
@@ -240,16 +639,16 @@ export default function TrackerPage() {
       <Modal
         isOpen={isManualModalOpen}
         onClose={() => setIsManualModalOpen(false)}
-        title={t("manualEntry")}
+        title={t("tracker.manualEntry")}
       >
         <form onSubmit={handleManualSubmit} className="space-y-4">
           <Select
             id="manual-goal"
-            label={t("selectGoal")}
+            label={t("tracker.selectGoal")}
             value={manualData.goal_id}
             onChange={(e) => setManualData((prev) => ({ ...prev, goal_id: e.target.value }))}
             options={[
-              { value: "", label: t("selectGoalPlaceholder") },
+              { value: "", label: t("tracker.selectQuarterlyGoal") },
               ...goals.map((g) => ({
                 value: g.id,
                 label: `Q${g.quarter}: ${g.title}`,
@@ -261,7 +660,7 @@ export default function TrackerPage() {
           <Input
             id="start-time"
             type="datetime-local"
-            label={t("startTime")}
+            label={t("tracker.startTime")}
             value={manualData.start_time}
             onChange={(e) => setManualData((prev) => ({ ...prev, start_time: e.target.value }))}
             required
@@ -270,7 +669,7 @@ export default function TrackerPage() {
           <Input
             id="end-time"
             type="datetime-local"
-            label={t("endTime")}
+            label={t("tracker.endTime")}
             value={manualData.end_time}
             onChange={(e) => setManualData((prev) => ({ ...prev, end_time: e.target.value }))}
             required
@@ -278,21 +677,162 @@ export default function TrackerPage() {
 
           <Input
             id="manual-note"
-            label={t("note")}
-            placeholder={t("manualNotePlaceholder")}
+            label={t("tracker.note")}
+            placeholder={t("tracker.notePlaceholder")}
             value={manualData.note}
             onChange={(e) => setManualData((prev) => ({ ...prev, note: e.target.value }))}
           />
 
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={() => setIsManualModalOpen(false)} className="flex-1">
-              {tCommon("cancel")}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsManualModalOpen(false)}
+              className="flex-1"
+            >
+              {t("common.cancel")}
             </Button>
             <Button type="submit" className="flex-1">
-              {tCommon("save")}
+              {t("common.save")}
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Create Plan Modal */}
+      <Modal
+        isOpen={isPlanModalOpen}
+        onClose={() => setIsPlanModalOpen(false)}
+        title={t("tracker.createPlan")}
+      >
+        <form onSubmit={handlePlanSubmit} className="space-y-4">
+          <Select
+            id="plan-goal"
+            label={t("tracker.selectGoal")}
+            value={planData.goal_id}
+            onChange={(e) => setPlanData((prev) => ({ ...prev, goal_id: e.target.value }))}
+            options={[
+              { value: "", label: t("tracker.selectQuarterlyGoal") },
+              ...goals.map((g) => ({
+                value: g.id,
+                label: `Q${g.quarter}: ${g.title}`,
+              })),
+            ]}
+            required
+          />
+
+          <Input
+            id="plan-start-time"
+            type="datetime-local"
+            label={t("tracker.planStartTime")}
+            value={planData.start_time}
+            onChange={(e) => setPlanData((prev) => ({ ...prev, start_time: e.target.value }))}
+            required
+          />
+
+          <Input
+            id="plan-end-time"
+            type="datetime-local"
+            label={t("tracker.planEndTime")}
+            value={planData.end_time}
+            onChange={(e) => setPlanData((prev) => ({ ...prev, end_time: e.target.value }))}
+            required
+          />
+
+          <Input
+            id="plan-note"
+            label={t("tracker.note")}
+            placeholder={t("tracker.planNotePlaceholder")}
+            value={planData.note}
+            onChange={(e) => setPlanData((prev) => ({ ...prev, note: e.target.value }))}
+          />
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsPlanModalOpen(false)}
+              className="flex-1"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" className="flex-1">
+              {t("tracker.createPlan")}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Plan/Record Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditData(null);
+        }}
+        title={t("tracker.editRecord")}
+      >
+        {editData && (
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <Select
+              id="edit-goal"
+              label={t("tracker.selectGoal")}
+              value={editData.goal_id}
+              onChange={(e) => setEditData((prev) => prev ? { ...prev, goal_id: e.target.value } : null)}
+              options={[
+                { value: "", label: t("tracker.selectQuarterlyGoal") },
+                ...goals.map((g) => ({
+                  value: g.id,
+                  label: `Q${g.quarter}: ${g.title}`,
+                })),
+              ]}
+              required
+            />
+
+            <Input
+              id="edit-start-time"
+              type="datetime-local"
+              label={t("tracker.startTime")}
+              value={editData.start_time}
+              onChange={(e) => setEditData((prev) => prev ? { ...prev, start_time: e.target.value } : null)}
+              required
+            />
+
+            <Input
+              id="edit-end-time"
+              type="datetime-local"
+              label={t("tracker.endTime")}
+              value={editData.end_time}
+              onChange={(e) => setEditData((prev) => prev ? { ...prev, end_time: e.target.value } : null)}
+              required
+            />
+
+            <Input
+              id="edit-note"
+              label={t("tracker.note")}
+              placeholder={t("tracker.notePlaceholder")}
+              value={editData.note}
+              onChange={(e) => setEditData((prev) => prev ? { ...prev, note: e.target.value } : null)}
+            />
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditData(null);
+                }}
+                className="flex-1"
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" className="flex-1">
+                {t("common.save")}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

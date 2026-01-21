@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTranslations, useLocale } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { reportApi } from "@/lib/api";
+import { useTranslation } from "@/i18n";
 import { VisionAlignmentReport, GoalProgressReport, WeeklyReport } from "@/types";
-import { getCurrentYear, getCurrentQuarter, getStatusColor } from "@/lib/utils";
+import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration } from "@/lib/utils";
 import { BarChart3, PieChart, TrendingUp, Calendar } from "lucide-react";
 
 export default function ReportsPage() {
+  const { t, locale } = useTranslation();
   const [selectedYear, setSelectedYear] = useState(getCurrentYear());
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(getCurrentQuarter());
 
@@ -18,11 +19,6 @@ export default function ReportsPage() {
   const [goalReport, setGoalReport] = useState<GoalProgressReport | null>(null);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const t = useTranslations("reports");
-  const tStatus = useTranslations("status");
-  const tGoals = useTranslations("goals");
-  const locale = useLocale();
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -59,8 +55,8 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
-          <p className="text-gray-500 mt-1">{t("subtitle")}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('reports.title')}</h1>
+          <p className="text-gray-500 mt-1">{t('reports.description')}</p>
         </div>
         <div className="flex gap-3">
           <Select
@@ -68,8 +64,8 @@ export default function ReportsPage() {
             value={selectedYear.toString()}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
             options={[
-              { value: (getCurrentYear() - 1).toString(), label: `${getCurrentYear() - 1}${t("yearSuffix")}` },
-              { value: getCurrentYear().toString(), label: `${getCurrentYear()}${t("yearSuffix")}` },
+              { value: (getCurrentYear() - 1).toString(), label: locale === 'zh-CN' ? `${getCurrentYear() - 1}年` : `${getCurrentYear() - 1}` },
+              { value: getCurrentYear().toString(), label: locale === 'zh-CN' ? `${getCurrentYear()}年` : `${getCurrentYear()}` },
             ]}
             className="w-28"
           />
@@ -78,7 +74,7 @@ export default function ReportsPage() {
             value={selectedQuarter?.toString() || ""}
             onChange={(e) => setSelectedQuarter(e.target.value ? parseInt(e.target.value) : null)}
             options={[
-              { value: "", label: t("allQuarters") },
+              { value: "", label: t('reports.wholeYear') },
               { value: "1", label: "Q1" },
               { value: "2", label: "Q2" },
               { value: "3", label: "Q3" },
@@ -100,7 +96,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-bold">
                 {visionReport ? `${visionReport.total_hours.toFixed(1)}h` : "-"}
               </p>
-              <p className="text-sm text-gray-500">{t("totalHours")}</p>
+              <p className="text-sm text-gray-500">{t('reports.totalTime')}</p>
             </div>
           </div>
         </Card>
@@ -116,7 +112,7 @@ export default function ReportsPage() {
                   ? goalReport.data.filter((g) => g.status === "completed").length
                   : "-"}
               </p>
-              <p className="text-sm text-gray-500">{t("completedGoals")}</p>
+              <p className="text-sm text-gray-500">{t('reports.completedGoals')}</p>
             </div>
           </div>
         </Card>
@@ -130,7 +126,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-bold">
                 {weeklyReport ? `${weeklyReport.total_hours.toFixed(1)}h` : "-"}
               </p>
-              <p className="text-sm text-gray-500">{t("thisWeekHours")}</p>
+              <p className="text-sm text-gray-500">{t('reports.weeklyInput')}</p>
             </div>
           </div>
         </Card>
@@ -141,7 +137,7 @@ export default function ReportsPage() {
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <PieChart className="h-5 w-5 text-primary-600" />
-            <h2 className="text-lg font-semibold">{t("visionAlignment")}</h2>
+            <h2 className="text-lg font-semibold">{t('reports.visionAlignment')}</h2>
           </div>
 
           {visionReport && visionReport.data.length > 0 ? (
@@ -175,13 +171,13 @@ export default function ReportsPage() {
               {/* Legend */}
               <div className="pt-4 border-t mt-4">
                 <p className="text-sm text-gray-500 text-center">
-                  {t("total")}: {visionReport.total_hours.toFixed(1)} {t("hours")}
+                  {t('reports.totalHours', { hours: visionReport.total_hours.toFixed(1) })}
                 </p>
               </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              {t("noData")}
+              {t('common.noData')}
             </div>
           )}
         </Card>
@@ -190,13 +186,13 @@ export default function ReportsPage() {
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="h-5 w-5 text-primary-600" />
-            <h2 className="text-lg font-semibold">{t("weeklyTimeDistribution")}</h2>
+            <h2 className="text-lg font-semibold">{t('reports.weeklyDistribution')}</h2>
           </div>
 
           {weeklyReport ? (
             <div className="space-y-3">
               {weeklyReport.daily_breakdown.map((day) => {
-                const dayName = new Date(day.date).toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
+                const dayName = new Date(day.date).toLocaleDateString(locale, {
                   weekday: "short",
                   month: "numeric",
                   day: "numeric",
@@ -228,13 +224,13 @@ export default function ReportsPage() {
                   {weeklyReport.start_date} - {weeklyReport.end_date}
                 </span>
                 <span className="font-medium text-primary-600">
-                  {t("total")} {weeklyReport.total_hours.toFixed(1)} {t("hours")}
+                  {t('reports.totalHours', { hours: weeklyReport.total_hours.toFixed(1) })}
                 </span>
               </div>
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              {t("noData")}
+              {t('common.noData')}
             </div>
           )}
         </Card>
@@ -244,7 +240,7 @@ export default function ReportsPage() {
       <Card>
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="h-5 w-5 text-primary-600" />
-          <h2 className="text-lg font-semibold">{t("goalProgress")}</h2>
+          <h2 className="text-lg font-semibold">{t('reports.goalProgress')}</h2>
         </div>
 
         {goalReport && goalReport.data.length > 0 ? (
@@ -252,11 +248,11 @@ export default function ReportsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t("goal")}</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t("type")}</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t("status")}</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t("progress")}</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-500">{t("timeInvested")}</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t('reports.goal')}</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t('reports.type')}</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t('reports.status')}</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-500">{t('reports.progress')}</th>
+                  <th className="text-right py-3 px-4 font-medium text-gray-500">{t('reports.timeSpent')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -273,12 +269,12 @@ export default function ReportsPage() {
                             : "bg-green-100 text-green-700"
                         }`}
                       >
-                        {goal.goal_type === "yearly" ? tGoals("yearly") : `Q${goal.quarter}`}
+                        {goal.goal_type === "yearly" ? t('reports.yearly') : `Q${goal.quarter}`}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(goal.status)}`}>
-                        {tStatus(goal.status)}
+                        {getStatusLabel(goal.status, locale)}
                       </span>
                     </td>
                     <td className="py-3 px-4 w-48">
@@ -297,7 +293,7 @@ export default function ReportsPage() {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
-            {t("noGoalData")}
+            {t('reports.noGoalData')}
           </div>
         )}
       </Card>
@@ -305,7 +301,7 @@ export default function ReportsPage() {
       {/* Top Goals This Week */}
       {weeklyReport && weeklyReport.top_goals.length > 0 && (
         <Card>
-          <h2 className="text-lg font-semibold mb-4">{t("topGoalsThisWeek")}</h2>
+          <h2 className="text-lg font-semibold mb-4">{t('reports.topGoalsThisWeek')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {weeklyReport.top_goals.map((goal, index) => (
               <div key={goal.goal_id} className="p-4 bg-gray-50 rounded-lg">
@@ -313,7 +309,7 @@ export default function ReportsPage() {
                   <span className="text-2xl font-bold text-gray-300">#{index + 1}</span>
                   <div className="flex-1">
                     <p className="font-medium line-clamp-1">{goal.title}</p>
-                    <p className="text-primary-600 font-semibold">{goal.hours.toFixed(1)} {t("hours")}</p>
+                    <p className="text-primary-600 font-semibold">{goal.hours.toFixed(1)} {t('common.hours')}</p>
                   </div>
                 </div>
               </div>

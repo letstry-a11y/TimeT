@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -16,22 +15,22 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { useState } from "react";
+import { useTranslation } from "@/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 const navigationItems = [
-  { key: "dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { key: "visions", href: "/visions", icon: Target },
-  { key: "goals", href: "/goals", icon: Flag },
-  { key: "tracker", href: "/tracker", icon: Clock },
-  { key: "reports", href: "/reports", icon: BarChart3 },
+  { key: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { key: "nav.visions", href: "/visions", icon: Target },
+  { key: "nav.goals", href: "/goals", icon: Flag },
+  { key: "nav.tracker", href: "/tracker", icon: Clock },
+  { key: "nav.reports", href: "/reports", icon: BarChart3 },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
-  const t = useTranslations("nav");
-  const tAuth = useTranslations("auth");
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     logout();
@@ -90,8 +89,8 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* User & Settings */}
-      <div className="p-4 border-t border-gray-200 space-y-2">
+      {/* User */}
+      <div className="p-4 border-t border-gray-200">
         {!collapsed && user && (
           <div className="mb-3 px-2">
             <p className="font-medium text-sm text-gray-900 truncate">{user.username}</p>
@@ -102,12 +101,12 @@ export function Sidebar() {
         <button
           onClick={handleLogout}
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full transition-colors",
+            "flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full transition-colors mt-1",
             collapsed && "justify-center"
           )}
         >
           <LogOut className="h-5 w-5" />
-          {!collapsed && <span>{tAuth("logout")}</span>}
+          {!collapsed && <span>{t('nav.logout')}</span>}
         </button>
       </div>
     </aside>

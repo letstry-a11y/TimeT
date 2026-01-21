@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
-from sqlalchemy import select, func, and_, cast, Date
+from sqlalchemy import select, func, and_, or_, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.api.deps import get_current_user
@@ -17,7 +17,7 @@ from app.schemas.report import (
 from app.models.user import User
 from app.models.vision import Vision
 from app.models.goal import Goal, GoalType
-from app.models.time_log import TimeLog
+from app.models.time_log import TimeLog, TimeLogType, TimeLogStatus
 
 router = APIRouter()
 
@@ -169,6 +169,7 @@ async def get_weekly_report(
         day_start = datetime.combine(day, datetime.min.time())
         day_end = datetime.combine(day, datetime.max.time())
 
+        # Only count: clock_in, manual, or planned with completed status
         result = await db.execute(
             select(
                 func.sum(TimeLog.duration_minutes).label("total_minutes"),
@@ -179,6 +180,13 @@ async def get_weekly_report(
                     TimeLog.start_time >= day_start,
                     TimeLog.start_time <= day_end,
                     TimeLog.is_running == False,
+                    or_(
+                        TimeLog.log_type != TimeLogType.PLANNED,
+                        and_(
+                            TimeLog.log_type == TimeLogType.PLANNED,
+                            TimeLog.status == TimeLogStatus.COMPLETED
+                        )
+                    )
                 )
             )
         )
@@ -192,7 +200,7 @@ async def get_weekly_report(
 
     total_hours = sum(d.hours for d in daily_stats)
 
-    # Get top goals for the week
+    # Get top goals for the week (only count completed time)
     top_goals_result = await db.execute(
         select(
             Goal.id,
@@ -206,6 +214,13 @@ async def get_weekly_report(
                 TimeLog.start_time >= datetime.combine(week_start, datetime.min.time()),
                 TimeLog.start_time <= datetime.combine(week_end, datetime.max.time()),
                 TimeLog.is_running == False,
+                or_(
+                    TimeLog.log_type != TimeLogType.PLANNED,
+                    and_(
+                        TimeLog.log_type == TimeLogType.PLANNED,
+                        TimeLog.status == TimeLogStatus.COMPLETED
+                    )
+                )
             )
         )
         .group_by(Goal.id, Goal.title)

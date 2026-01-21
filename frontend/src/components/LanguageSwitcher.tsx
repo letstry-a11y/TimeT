@@ -1,45 +1,35 @@
 "use client";
 
-import { useTransition } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslation } from "@/i18n";
 import { Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { locales, localeNames, type Locale } from "@/i18n/config";
 
 interface LanguageSwitcherProps {
   collapsed?: boolean;
+  className?: string;
 }
 
-export function LanguageSwitcher({ collapsed = false }: LanguageSwitcherProps) {
-  const t = useTranslations("language");
-  const locale = useLocale();
-  const [isPending, startTransition] = useTransition();
+export function LanguageSwitcher({ collapsed, className }: LanguageSwitcherProps) {
+  const { locale, setLocale } = useTranslation();
 
-  const handleLocaleChange = (newLocale: Locale) => {
-    startTransition(() => {
-      // Set cookie and reload page to apply new locale
-      document.cookie = `locale=${newLocale};path=/;max-age=31536000`;
-      window.location.reload();
-    });
+  const toggleLanguage = () => {
+    setLocale(locale === 'zh-CN' ? 'en-US' : 'zh-CN');
   };
-
-  const nextLocale: Locale = locale === "zh-CN" ? "en" : "zh-CN";
 
   return (
     <button
-      onClick={() => handleLocaleChange(nextLocale)}
-      disabled={isPending}
+      onClick={toggleLanguage}
       className={cn(
         "flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full transition-colors",
         collapsed && "justify-center",
-        isPending && "opacity-50 cursor-not-allowed"
+        className
       )}
-      title={t("switch")}
+      title={locale === 'zh-CN' ? 'Switch to English' : '切换到中文'}
     >
-      <Globe className="h-5 w-5" />
+      <Globe className="h-5 w-5 flex-shrink-0" />
       {!collapsed && (
         <span className="text-sm">
-          {localeNames[nextLocale]}
+          {locale === 'zh-CN' ? 'English' : '中文'}
         </span>
       )}
     </button>

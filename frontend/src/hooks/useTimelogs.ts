@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { timelogApi } from "@/lib/api";
-import { TimeLog, TimeLogStart, TimeLogManual } from "@/types";
+import { TimeLog, TimeLogStart, TimeLogManual, TimeLogPlanned, TimeLogStatus } from "@/types";
+import { getTranslation, useLanguageStore } from "@/i18n";
 import toast from "react-hot-toast";
+
+const t = (key: string) => getTranslation(useLanguageStore.getState().locale, key);
 
 interface TimelogFilters {
   goal_id?: string;
@@ -26,7 +29,7 @@ export function useTimelogs(filters?: TimelogFilters) {
       setTimelogs(data);
     } catch (err: any) {
       setError(err.message);
-      toast.error("加载时间记录失败");
+      toast.error(t('tracker.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -46,10 +49,10 @@ export function useTimelogs(filters?: TimelogFilters) {
       const session = await timelogApi.start(data);
       setCurrentSession(session);
       setTimelogs((prev) => [session, ...prev]);
-      toast.success("开始计时");
+      toast.success(t('tracker.startSuccess'));
       return session;
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "开始计时失败");
+      toast.error(err.response?.data?.detail || t('tracker.startFailed'));
       throw err;
     }
   };
@@ -58,11 +61,11 @@ export function useTimelogs(filters?: TimelogFilters) {
     try {
       const updated = await timelogApi.stop(id, note);
       setCurrentSession(null);
-      setTimelogs((prev) => prev.map((t) => (t.id === id ? updated : t)));
-      toast.success("计时已停止");
+      setTimelogs((prev) => prev.map((log) => (log.id === id ? updated : log)));
+      toast.success(t('tracker.stopSuccess'));
       return updated;
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "停止计时失败");
+      toast.error(err.response?.data?.detail || t('tracker.stopFailed'));
       throw err;
     }
   };
@@ -71,10 +74,46 @@ export function useTimelogs(filters?: TimelogFilters) {
     try {
       const newLog = await timelogApi.createManual(data);
       setTimelogs((prev) => [newLog, ...prev]);
-      toast.success("时间记录已添加");
+      toast.success(t('tracker.addSuccess'));
       return newLog;
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "添加失败");
+      toast.error(err.response?.data?.detail || t('tracker.addFailed'));
+      throw err;
+    }
+  };
+
+  const createPlanned = async (data: TimeLogPlanned) => {
+    try {
+      const newLog = await timelogApi.createPlanned(data);
+      setTimelogs((prev) => [newLog, ...prev]);
+      toast.success(t('tracker.planSuccess'));
+      return newLog;
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('tracker.planFailed'));
+      throw err;
+    }
+  };
+
+  const updateStatus = async (id: string, status: TimeLogStatus) => {
+    try {
+      const updated = await timelogApi.updateStatus(id, status);
+      setTimelogs((prev) => prev.map((log) => (log.id === id ? updated : log)));
+      toast.success(t('tracker.statusUpdateSuccess'));
+      return updated;
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('tracker.statusUpdateFailed'));
+      throw err;
+    }
+  };
+
+  const updateTimelog = async (id: string, data: Partial<TimeLog>) => {
+    try {
+      const updated = await timelogApi.update(id, data);
+      setTimelogs((prev) => prev.map((log) => (log.id === id ? updated : log)));
+      toast.success(t('tracker.updateSuccess'));
+      return updated;
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || t('tracker.updateFailed'));
       throw err;
     }
   };
@@ -82,10 +121,10 @@ export function useTimelogs(filters?: TimelogFilters) {
   const deleteTimelog = async (id: string) => {
     try {
       await timelogApi.delete(id);
-      setTimelogs((prev) => prev.filter((t) => t.id !== id));
-      toast.success("记录已删除");
+      setTimelogs((prev) => prev.filter((log) => log.id !== id));
+      toast.success(t('tracker.deleteSuccess'));
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "删除失败");
+      toast.error(err.response?.data?.detail || t('tracker.deleteFailed'));
       throw err;
     }
   };
@@ -105,6 +144,9 @@ export function useTimelogs(filters?: TimelogFilters) {
     startSession,
     stopSession,
     createManual,
+    createPlanned,
+    updateStatus,
+    updateTimelog,
     deleteTimelog,
   };
 }

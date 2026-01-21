@@ -11,6 +11,13 @@ from app.db.types import GUID
 class TimeLogType(str, Enum):
     CLOCK_IN = "clock_in"  # Real-time clock in/out
     MANUAL = "manual"      # Manual entry
+    PLANNED = "planned"    # Planned task
+
+
+class TimeLogStatus(str, Enum):
+    PENDING = "pending"           # 待完成
+    COMPLETED = "completed"       # 已完成
+    NOT_COMPLETED = "not_completed"  # 未完成
 
 
 class TimeLog(Base):
@@ -31,6 +38,11 @@ class TimeLog(Base):
 
     log_type: Mapped[TimeLogType] = mapped_column(
         SQLEnum(TimeLogType), nullable=False, default=TimeLogType.CLOCK_IN
+    )
+
+    # Status for planned tasks
+    status: Mapped[Optional[TimeLogStatus]] = mapped_column(
+        SQLEnum(TimeLogStatus), nullable=True, default=None
     )
 
     # Time tracking

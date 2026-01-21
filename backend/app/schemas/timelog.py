@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, model_validator
-from app.models.time_log import TimeLogType
+from app.models.time_log import TimeLogType, TimeLogStatus
 
 
 class TimeLogBase(BaseModel):
@@ -34,6 +34,28 @@ class TimeLogManual(TimeLogBase):
         return self
 
 
+class TimeLogPlanned(TimeLogBase):
+    """Schema for creating a planned task."""
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: Optional[float] = None
+
+    @model_validator(mode="after")
+    def validate_times(self):
+        if self.end_time <= self.start_time:
+            raise ValueError("End time must be after start time")
+        # Auto-calculate duration if not provided
+        if self.duration_minutes is None:
+            delta = self.end_time - self.start_time
+            self.duration_minutes = delta.total_seconds() / 60
+        return self
+
+
+class TimeLogStatusUpdate(BaseModel):
+    """Schema for updating planned task status."""
+    status: TimeLogStatus
+
+
 class TimeLogStop(BaseModel):
     """Schema for stopping a clock-in session."""
     note: Optional[str] = None
@@ -55,6 +77,7 @@ class TimeLogResponse(BaseModel):
     goal_id: uuid.UUID
     task_id: Optional[uuid.UUID]
     log_type: TimeLogType
+    status: Optional[TimeLogStatus]
     start_time: datetime
     end_time: Optional[datetime]
     duration_minutes: Optional[float]

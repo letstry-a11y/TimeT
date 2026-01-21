@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useTranslations, useLocale } from "next-intl";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,24 +9,30 @@ import { Modal } from "@/components/ui/Modal";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useGoals } from "@/hooks/useGoals";
 import { useVisions } from "@/hooks/useVisions";
+import { useTranslation } from "@/i18n";
 import { Goal, GoalCreate } from "@/types";
-import { getCurrentYear, getCurrentQuarter, getStatusColor, formatDuration } from "@/lib/utils";
+import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration } from "@/lib/utils";
 import { Plus, Edit2, Trash2, Flag, ChevronRight, ChevronDown } from "lucide-react";
 
 export default function GoalsPage() {
+  const { t, locale } = useTranslation();
   const currentYear = getCurrentYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(null);
-  const t = useTranslations("goals");
-  const tCommon = useTranslations("common");
-  const tStatus = useTranslations("status");
-  const locale = useLocale();
 
   const { goals, isLoading, createGoal, updateGoal, deleteGoal, refetch } = useGoals({
     year: selectedYear,
     quarter: selectedQuarter || undefined,
   });
   const { visions } = useVisions();
+
+  const STATUS_OPTIONS = [
+    { value: "not_started", label: t('goals.notStarted') },
+    { value: "in_progress", label: t('goals.inProgress') },
+    { value: "completed", label: t('goals.completed') },
+    { value: "paused", label: t('goals.paused') },
+    { value: "cancelled", label: t('goals.cancelled') },
+  ];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -42,15 +47,6 @@ export default function GoalsPage() {
     parent_id: "",
     target_hours: 0,
   });
-
-  // Status options with translations
-  const statusOptions = [
-    { value: "not_started", label: tStatus("not_started") },
-    { value: "in_progress", label: tStatus("in_progress") },
-    { value: "completed", label: tStatus("completed") },
-    { value: "paused", label: tStatus("paused") },
-    { value: "cancelled", label: tStatus("cancelled") },
-  ];
 
   // Group goals by hierarchy
   const yearlyGoals = useMemo(() => {
@@ -119,11 +115,16 @@ export default function GoalsPage() {
       }
 
       if (editingGoal) {
-        await updateGoal(editingGoal.id, {
+        const updateData: Partial<Goal> = {
           title: data.title,
           description: data.description,
           target_hours: data.target_hours,
-        });
+        };
+        // 年度目标可以修改愿景关联
+        if (editingGoal.goal_type === 'yearly') {
+          updateData.vision_id = data.vision_id || undefined;
+        }
+        await updateGoal(editingGoal.id, updateData);
       } else {
         await createGoal(data);
       }
@@ -135,7 +136,7 @@ export default function GoalsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm(t("deleteConfirm"))) {
+    if (window.confirm(t('goals.deleteConfirm'))) {
       await deleteGoal(id);
     }
   };
@@ -157,17 +158,17 @@ export default function GoalsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
-          <p className="text-gray-500 mt-1">{t("subtitle")}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('goals.management')}</h1>
+          <p className="text-gray-500 mt-1">{t('goals.description')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => handleOpenCreate("yearly")}>
             <Plus className="h-4 w-4 mr-2" />
-            {t("yearly")}
+            {t('goals.yearlyGoal')}
           </Button>
           <Button onClick={() => handleOpenCreate("quarterly")}>
             <Plus className="h-4 w-4 mr-2" />
-            {t("quarterly")}
+            {t('goals.quarterlyGoal')}
           </Button>
         </div>
       </div>
@@ -177,23 +178,27 @@ export default function GoalsPage() {
         <div className="flex gap-4 items-center">
           <Select
             id="year"
-            label={t("year")}
+            label={t('goals.year')}
             value={selectedYear.toString()}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
             options={[
-              { value: (currentYear - 1).toString(), label: `${currentYear - 1}${t("yearSuffix")}` },
-              { value: currentYear.toString(), label: `${currentYear}${t("yearSuffix")}` },
-              { value: (currentYear + 1).toString(), label: `${currentYear + 1}${t("yearSuffix")}` },
+              { value: (currentYear - 1).toString(), label: locale === 'zh-CN' ? `${currentYear - 1}年` : `${currentYear - 1}` },
+              { value: currentYear.toString(), label: locale === 'zh-CN' ? `${currentYear}年` : `${currentYear}` },
+              { value: (currentYear + 1).toString(), label: locale === 'zh-CN' ? `${currentYear + 1}年` : `${currentYear + 1}` },
+              { value: (currentYear + 2).toString(), label: locale === 'zh-CN' ? `${currentYear + 2}年` : `${currentYear + 2}` },
+              { value: (currentYear + 3).toString(), label: locale === 'zh-CN' ? `${currentYear + 3}年` : `${currentYear + 3}` },
+              { value: (currentYear + 4).toString(), label: locale === 'zh-CN' ? `${currentYear + 4}年` : `${currentYear + 4}` },
+              { value: (currentYear + 5).toString(), label: locale === 'zh-CN' ? `${currentYear + 5}年` : `${currentYear + 5}` },
             ]}
             className="w-32"
           />
           <Select
             id="quarter"
-            label={t("quarter")}
+            label={t('goals.quarter')}
             value={selectedQuarter?.toString() || ""}
             onChange={(e) => setSelectedQuarter(e.target.value ? parseInt(e.target.value) : null)}
             options={[
-              { value: "", label: tCommon("all") },
+              { value: "", label: t('goals.all') },
               { value: "1", label: "Q1" },
               { value: "2", label: "Q2" },
               { value: "3", label: "Q3" },
@@ -208,11 +213,11 @@ export default function GoalsPage() {
       {yearlyGoals.length === 0 && quarterlyGoals.length === 0 ? (
         <Card className="text-center py-12">
           <Flag className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">{t("noGoals")}</h3>
-          <p className="text-gray-500 mb-4">{t("noGoalsHint")}</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('goals.noGoals')}</h3>
+          <p className="text-gray-500 mb-4">{t('goals.noGoalsHint')}</p>
           <Button onClick={() => handleOpenCreate("yearly")}>
             <Plus className="h-4 w-4 mr-2" />
-            {t("createYearlyGoal")}
+            {t('goals.createYearlyGoal')}
           </Button>
         </Card>
       ) : (
@@ -239,7 +244,7 @@ export default function GoalsPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                          {t("yearly")}
+                          {t('goals.yearlyGoal')}
                         </span>
                         <h3 className="font-semibold">{yearlyGoal.title}</h3>
                       </div>
@@ -250,7 +255,7 @@ export default function GoalsPage() {
                           className="w-48"
                         />
                         <span className="text-sm text-gray-500">
-                          {formatDuration(yearlyGoal.accumulated_hours * 60)}
+                          {formatDuration(yearlyGoal.accumulated_hours * 60, locale)}
                           {yearlyGoal.target_hours && ` / ${yearlyGoal.target_hours}h`}
                         </span>
                       </div>
@@ -260,7 +265,7 @@ export default function GoalsPage() {
                       onChange={(e) => handleStatusChange(yearlyGoal.id, e.target.value)}
                       className={`text-xs px-2 py-1 rounded-full border-0 ${getStatusColor(yearlyGoal.status)}`}
                     >
-                      {statusOptions.map((opt) => (
+                      {STATUS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
@@ -270,7 +275,7 @@ export default function GoalsPage() {
                       <button
                         onClick={() => handleOpenCreate("quarterly", yearlyGoal.id)}
                         className="p-1.5 hover:bg-gray-200 rounded-lg"
-                        title={t("addQuarterlyGoal")}
+                        title={t('goals.addQuarterlyGoal')}
                       >
                         <Plus className="h-4 w-4 text-gray-500" />
                       </button>
@@ -295,12 +300,12 @@ export default function GoalsPage() {
                   <div className="divide-y">
                     {children.length === 0 ? (
                       <div className="p-4 text-center text-gray-500 text-sm">
-                        {t("noQuarterlyGoals")}
+                        {t('goals.noQuarterlyGoals')}
                         <button
                           onClick={() => handleOpenCreate("quarterly", yearlyGoal.id)}
                           className="text-primary-600 hover:underline"
                         >
-                          {t("clickToAdd")}
+                          {t('goals.clickToAdd')}
                         </button>
                       </div>
                     ) : (
@@ -321,7 +326,7 @@ export default function GoalsPage() {
                                   className="w-40"
                                 />
                                 <span className="text-sm text-gray-500">
-                                  {formatDuration(qGoal.accumulated_hours * 60)}
+                                  {formatDuration(qGoal.accumulated_hours * 60, locale)}
                                   {qGoal.target_hours && ` / ${qGoal.target_hours}h`}
                                 </span>
                               </div>
@@ -331,7 +336,7 @@ export default function GoalsPage() {
                               onChange={(e) => handleStatusChange(qGoal.id, e.target.value)}
                               className={`text-xs px-2 py-1 rounded-full border-0 ${getStatusColor(qGoal.status)}`}
                             >
-                              {statusOptions.map((opt) => (
+                              {STATUS_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
                                   {opt.label}
                                 </option>
@@ -364,7 +369,7 @@ export default function GoalsPage() {
           {/* Orphan quarterly goals */}
           {quarterlyGoals.filter((g) => !g.parent_id).length > 0 && (
             <Card>
-              <h3 className="font-semibold mb-4 text-gray-500">{t("orphanQuarterlyGoals")}</h3>
+              <h3 className="font-semibold mb-4 text-gray-500">{t('goals.unlinkedQuarterlyGoals')}</h3>
               <div className="space-y-3">
                 {quarterlyGoals
                   .filter((g) => !g.parent_id)
@@ -373,7 +378,7 @@ export default function GoalsPage() {
                       <div className="flex items-center justify-between">
                         <span>{qGoal.title}</span>
                         <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(qGoal.status)}`}>
-                          {tStatus(qGoal.status)}
+                          {getStatusLabel(qGoal.status, locale)}
                         </span>
                       </div>
                     </div>
@@ -388,40 +393,40 @@ export default function GoalsPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingGoal ? t("editGoal") : (formData.goal_type === "yearly" ? t("createYearlyGoal") : t("createQuarterlyGoal"))}
+        title={editingGoal ? t('goals.editGoal') : (formData.goal_type === "yearly" ? t('goals.createYearlyGoal') : t('goals.createQuarterlyGoal'))}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="title"
-            label={t("goalTitle")}
-            placeholder={t("goalTitlePlaceholder")}
+            label={t('goals.goalTitle')}
+            placeholder={t('goals.goalTitlePlaceholder')}
             value={formData.title}
             onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
             required
           />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("goalDescription")}</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('goals.goalDescription')}</label>
             <textarea
               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               rows={2}
-              placeholder={t("goalDescriptionPlaceholder")}
+              placeholder={t('goals.descriptionPlaceholder')}
               value={formData.description}
               onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
             />
           </div>
 
-          {!editingGoal && formData.goal_type === "yearly" && (
+          {/* 创建或编辑年度目标时显示愿景选择器 */}
+          {(editingGoal?.goal_type === "yearly" || (!editingGoal && formData.goal_type === "yearly")) && (
             <Select
               id="vision"
-              label={t("linkedVision")}
+              label={t('goals.relatedVision')}
               value={formData.vision_id || ""}
               onChange={(e) => setFormData((prev) => ({ ...prev, vision_id: e.target.value }))}
               options={[
-                { value: "", label: t("selectVision") },
+                { value: "", label: t('goals.selectVision') },
                 ...visions.map((v) => ({ value: v.id, label: v.title })),
               ]}
-              required
             />
           )}
 
@@ -429,25 +434,25 @@ export default function GoalsPage() {
             <>
               <Select
                 id="parent"
-                label={t("linkedYearlyGoal")}
+                label={t('goals.relatedYearlyGoal')}
                 value={formData.parent_id || ""}
                 onChange={(e) => setFormData((prev) => ({ ...prev, parent_id: e.target.value }))}
                 options={[
-                  { value: "", label: t("selectYearlyGoal") },
+                  { value: "", label: t('goals.selectYearlyGoal') },
                   ...yearlyGoals.map((g) => ({ value: g.id, label: g.title })),
                 ]}
                 required
               />
               <Select
                 id="quarter"
-                label={t("quarter")}
+                label={t('goals.quarter')}
                 value={formData.quarter?.toString() || ""}
                 onChange={(e) => setFormData((prev) => ({ ...prev, quarter: parseInt(e.target.value) }))}
                 options={[
-                  { value: "1", label: t("q1") },
-                  { value: "2", label: t("q2") },
-                  { value: "3", label: t("q3") },
-                  { value: "4", label: t("q4") },
+                  { value: "1", label: t('goals.q1') },
+                  { value: "2", label: t('goals.q2') },
+                  { value: "3", label: t('goals.q3') },
+                  { value: "4", label: t('goals.q4') },
                 ]}
                 required
               />
@@ -457,7 +462,7 @@ export default function GoalsPage() {
           <Input
             id="target_hours"
             type="number"
-            label={t("targetHours")}
+            label={t('goals.targetHours')}
             placeholder="0"
             value={formData.target_hours || ""}
             onChange={(e) => setFormData((prev) => ({ ...prev, target_hours: parseFloat(e.target.value) || 0 }))}
@@ -465,10 +470,10 @@ export default function GoalsPage() {
 
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1">
-              {tCommon("cancel")}
+              {t('common.cancel')}
             </Button>
             <Button type="submit" className="flex-1">
-              {editingGoal ? tCommon("save") : tCommon("create")}
+              {editingGoal ? t('common.save') : t('common.create')}
             </Button>
           </div>
         </form>
