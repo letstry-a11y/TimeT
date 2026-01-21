@@ -115,11 +115,16 @@ export default function GoalsPage() {
       }
 
       if (editingGoal) {
-        await updateGoal(editingGoal.id, {
+        const updateData: Partial<Goal> = {
           title: data.title,
           description: data.description,
           target_hours: data.target_hours,
-        });
+        };
+        // 年度目标可以修改愿景关联
+        if (editingGoal.goal_type === 'yearly') {
+          updateData.vision_id = data.vision_id || undefined;
+        }
+        await updateGoal(editingGoal.id, updateData);
       } else {
         await createGoal(data);
       }
@@ -407,7 +412,8 @@ export default function GoalsPage() {
             />
           </div>
 
-          {!editingGoal && formData.goal_type === "yearly" && (
+          {/* 创建或编辑年度目标时显示愿景选择器 */}
+          {(editingGoal?.goal_type === "yearly" || (!editingGoal && formData.goal_type === "yearly")) && (
             <Select
               id="vision"
               label={t('goals.relatedVision')}
@@ -417,7 +423,6 @@ export default function GoalsPage() {
                 { value: "", label: t('goals.selectVision') },
                 ...visions.map((v) => ({ value: v.id, label: v.title })),
               ]}
-              required
             />
           )}
 

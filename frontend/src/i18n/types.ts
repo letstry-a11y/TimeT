@@ -181,6 +181,11 @@ export interface Translations {
     deleteSuccess: string;
     deleteFailed: string;
     loadFailed: string;
+    yearlyGoalsCount: string;
+    quarterlyGoalsCount: string;
+    expandGoals: string;
+    collapseGoals: string;
+    noAssociatedGoals: string;
   };
 
   reports: {

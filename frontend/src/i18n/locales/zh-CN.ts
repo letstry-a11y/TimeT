@@ -183,6 +183,11 @@ export const zhCN: Translations = {
     deleteSuccess: '愿景已删除',
     deleteFailed: '删除失败',
     loadFailed: '加载愿景失败',
+    yearlyGoalsCount: '年度目标',
+    quarterlyGoalsCount: '季度目标',
+    expandGoals: '查看目标',
+    collapseGoals: '收起',
+    noAssociatedGoals: '暂无关联目标',
   },
 
   reports: {

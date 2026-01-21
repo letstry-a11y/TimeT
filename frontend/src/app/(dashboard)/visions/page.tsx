@@ -5,10 +5,13 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useVisions } from "@/hooks/useVisions";
 import { useTranslation } from "@/i18n";
-import { Vision } from "@/types";
-import { Plus, Edit2, Trash2, Target } from "lucide-react";
+import { goalApi } from "@/lib/api";
+import { Vision, Goal } from "@/types";
+import { getStatusColor, getStatusLabel } from "@/lib/utils";
+import { Plus, Edit2, Trash2, Target, ChevronDown, ChevronRight } from "lucide-react";
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
@@ -18,7 +21,7 @@ const COLORS = [
 
 export default function VisionsPage() {
   const { visions, isLoading, createVision, updateVision, deleteVision } = useVisions();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVision, setEditingVision] = useState<Vision | null>(null);
   const [formData, setFormData] = useState({
@@ -27,6 +30,52 @@ export default function VisionsPage() {
     target_year: new Date().getFullYear() + 5,
     color: COLORS[0],
   });
+
+  // 展开/收起状态和目标数据
+  const [expandedVisions, setExpandedVisions] = useState<Set<string>>(new Set());
+  const [visionGoals, setVisionGoals] = useState<Record<string, Goal[]>>({});
+  const [loadingGoals, setLoadingGoals] = useState<Set<string>>(new Set());
+
+  // 加载愿景关联的目标
+  const loadVisionGoals = async (visionId: string) => {
+    setLoadingGoals(prev => new Set(prev).add(visionId));
+    try {
+      const goals = await goalApi.list({ vision_id: visionId });
+      setVisionGoals(prev => ({ ...prev, [visionId]: goals }));
+    } catch (err) {
+      console.error("Failed to load vision goals:", err);
+    } finally {
+      setLoadingGoals(prev => {
+        const next = new Set(prev);
+        next.delete(visionId);
+        return next;
+      });
+    }
+  };
+
+  // 切换展开/收起
+  const toggleExpand = async (visionId: string) => {
+    const newExpanded = new Set(expandedVisions);
+    if (newExpanded.has(visionId)) {
+      newExpanded.delete(visionId);
+    } else {
+      newExpanded.add(visionId);
+      if (!visionGoals[visionId]) {
+        await loadVisionGoals(visionId);
+      }
+    }
+    setExpandedVisions(newExpanded);
+  };
+
+  // 获取目标统计
+  const getGoalStats = (goals: Goal[] | undefined) => {
+    if (!goals) return { yearly: 0, quarterly: 0, completed: 0, inProgress: 0 };
+    const yearly = goals.filter(g => g.goal_type === 'yearly').length;
+    const quarterly = goals.filter(g => g.goal_type === 'quarterly').length;
+    const completed = goals.filter(g => g.status === 'completed').length;
+    const inProgress = goals.filter(g => g.status === 'in_progress').length;
+    return { yearly, quarterly, completed, inProgress };
+  };
 
   const handleOpenCreate = () => {
     setEditingVision(null);
@@ -105,49 +154,129 @@ export default function VisionsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visions.map((vision) => (
-            <Card key={vision.id} className="relative group">
-              <div
-                className="absolute top-0 left-0 w-full h-1 rounded-t-xl"
-                style={{ backgroundColor: vision.color || COLORS[0] }}
-              />
-              <div className="pt-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: vision.color || COLORS[0] }}
-                    />
-                    <h3 className="font-semibold text-lg">{vision.title}</h3>
+          {visions.map((vision) => {
+            const isExpanded = expandedVisions.has(vision.id);
+            const goals = visionGoals[vision.id];
+            const stats = getGoalStats(goals);
+            const isLoadingVisionGoals = loadingGoals.has(vision.id);
+            const yearlyGoals = goals?.filter(g => g.goal_type === 'yearly') || [];
+
+            return (
+              <Card key={vision.id} className="relative group">
+                <div
+                  className="absolute top-0 left-0 w-full h-1 rounded-t-xl"
+                  style={{ backgroundColor: vision.color || COLORS[0] }}
+                />
+                <div className="pt-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: vision.color || COLORS[0] }}
+                      />
+                      <h3 className="font-semibold text-lg">{vision.title}</h3>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleOpenEdit(vision)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg"
+                      >
+                        <Edit2 className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(vision.id)}
+                        className="p-1.5 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {vision.description && (
+                    <p className="text-gray-500 mt-2 text-sm line-clamp-2">
+                      {vision.description}
+                    </p>
+                  )}
+                  {vision.target_year && (
+                    <p className="text-xs text-gray-400 mt-3">
+                      {t('visions.targetYear')}: {vision.target_year}
+                    </p>
+                  )}
+
+                  {/* 目标统计和展开按钮 */}
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    {goals && (
+                      <div className="flex gap-4 text-xs text-gray-500 mb-2">
+                        <span>{t('visions.yearlyGoalsCount')}: {stats.yearly}</span>
+                        <span>{t('visions.quarterlyGoalsCount')}: {stats.quarterly}</span>
+                      </div>
+                    )}
                     <button
-                      onClick={() => handleOpenEdit(vision)}
-                      className="p-1.5 hover:bg-gray-100 rounded-lg"
+                      onClick={() => toggleExpand(vision.id)}
+                      className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700"
                     >
-                      <Edit2 className="h-4 w-4 text-gray-500" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(vision.id)}
-                      className="p-1.5 hover:bg-red-50 rounded-lg"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      {isExpanded ? (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          {t('visions.collapseGoals')}
+                        </>
+                      ) : (
+                        <>
+                          <ChevronRight className="h-4 w-4" />
+                          {t('visions.expandGoals')}
+                        </>
+                      )}
                     </button>
                   </div>
+
+                  {/* 展开的目标列表 */}
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      {isLoadingVisionGoals ? (
+                        <div className="flex justify-center py-4">
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-primary-600"></div>
+                        </div>
+                      ) : yearlyGoals.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-2">
+                          {t('visions.noAssociatedGoals')}
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {yearlyGoals.map(yearly => {
+                            const children = goals?.filter(g => g.parent_id === yearly.id) || [];
+                            return (
+                              <div key={yearly.id} className="text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium flex-1 truncate">{yearly.title}</span>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${getStatusColor(yearly.status)}`}>
+                                    {getStatusLabel(yearly.status, locale)}
+                                  </span>
+                                </div>
+                                <div className="mt-1">
+                                  <ProgressBar value={yearly.progress_percentage} size="sm" />
+                                </div>
+                                {children.length > 0 && (
+                                  <div className="ml-3 mt-2 space-y-1.5 border-l-2 border-gray-100 pl-3">
+                                    {children.map(child => (
+                                      <div key={child.id} className="flex items-center gap-2 text-xs text-gray-600">
+                                        <span className="truncate flex-1">Q{child.quarter}: {child.title}</span>
+                                        <span className={`px-1.5 py-0.5 rounded ${getStatusColor(child.status)}`}>
+                                          {getStatusLabel(child.status, locale)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {vision.description && (
-                  <p className="text-gray-500 mt-2 text-sm line-clamp-2">
-                    {vision.description}
-                  </p>
-                )}
-                {vision.target_year && (
-                  <p className="text-xs text-gray-400 mt-3">
-                    {t('visions.targetYear')}: {vision.target_year}
-                  </p>
-                )}
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 

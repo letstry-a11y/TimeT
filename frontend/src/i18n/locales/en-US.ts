@@ -183,6 +183,11 @@ export const enUS: Translations = {
     deleteSuccess: 'Vision deleted',
     deleteFailed: 'Failed to delete vision',
     loadFailed: 'Failed to load visions',
+    yearlyGoalsCount: 'Yearly Goals',
+    quarterlyGoalsCount: 'Quarterly Goals',
+    expandGoals: 'View Goals',
+    collapseGoals: 'Collapse',
+    noAssociatedGoals: 'No associated goals',
   },
 
   reports: {
