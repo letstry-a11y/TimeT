@@ -9,8 +9,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Timer } from "@/components/Timer";
 import { useGoals } from "@/hooks/useGoals";
 import { useTimelogs } from "@/hooks/useTimelogs";
-import { getCurrentYear, getCurrentQuarter, formatDateTime, formatDuration } from "@/lib/utils";
-import { Clock, Plus, Trash2, Calendar } from "lucide-react";
+import { useTranslation } from "@/i18n";
+import { getCurrentYear, formatDateTime, formatDuration } from "@/lib/utils";
+import { Clock, Plus, Trash2 } from "lucide-react";
 
 export default function TrackerPage() {
   const { goals } = useGoals({ year: getCurrentYear(), goal_type: "quarterly" });
@@ -23,8 +24,8 @@ export default function TrackerPage() {
     createManual,
     deleteTimelog,
     refetch,
-    refetchCurrent,
   } = useTimelogs();
+  const { t, locale } = useTranslation();
 
   const [selectedGoalId, setSelectedGoalId] = useState("");
   const [note, setNote] = useState("");
@@ -36,7 +37,6 @@ export default function TrackerPage() {
     note: "",
   });
 
-  // Set default goal when goals load
   useEffect(() => {
     if (goals.length > 0 && !selectedGoalId) {
       setSelectedGoalId(goals[0].id);
@@ -80,7 +80,7 @@ export default function TrackerPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("确定要删除这条记录吗？")) {
+    if (window.confirm(t('tracker.deleteConfirm'))) {
       await deleteTimelog(id);
     }
   };
@@ -92,28 +92,27 @@ export default function TrackerPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">时间追踪</h1>
-          <p className="text-gray-500 mt-1">记录你的每一分钟</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('tracker.title')}</h1>
+          <p className="text-gray-500 mt-1">{t('tracker.description')}</p>
         </div>
         <Button variant="secondary" onClick={() => setIsManualModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          手动补录
+          {t('tracker.manualEntry')}
         </Button>
       </div>
 
       {/* Timer Section */}
       <Card className="py-8">
         <div className="max-w-md mx-auto">
-          {/* Goal Selector */}
           {!currentSession && (
             <div className="mb-8">
               <Select
                 id="goal"
-                label="选择目标"
+                label={t('tracker.selectGoal')}
                 value={selectedGoalId}
                 onChange={(e) => setSelectedGoalId(e.target.value)}
                 options={[
-                  { value: "", label: "请选择季度目标" },
+                  { value: "", label: t('tracker.selectQuarterlyGoal') },
                   ...goals.map((g) => ({
                     value: g.id,
                     label: `Q${g.quarter}: ${g.title}`,
@@ -123,17 +122,15 @@ export default function TrackerPage() {
             </div>
           )}
 
-          {/* Current Goal Display */}
           {currentSession && currentGoal && (
             <div className="text-center mb-6">
-              <p className="text-sm text-gray-500">正在进行</p>
+              <p className="text-sm text-gray-500">{t('dashboard.inProgress')}</p>
               <p className="text-lg font-semibold text-primary-600">
                 Q{currentGoal.quarter}: {currentGoal.title}
               </p>
             </div>
           )}
 
-          {/* Timer */}
           <Timer
             isRunning={!!currentSession}
             startTime={currentSession?.start_time}
@@ -142,12 +139,11 @@ export default function TrackerPage() {
             disabled={!selectedGoalId || goals.length === 0}
           />
 
-          {/* Note Input */}
           <div className="mt-8">
             <Input
               id="note"
-              label="备注 (可选)"
-              placeholder="记录你正在做什么..."
+              label={t('tracker.note')}
+              placeholder={t('tracker.notePlaceholder')}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -158,9 +154,9 @@ export default function TrackerPage() {
       {/* Recent Logs */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">最近记录</h2>
+          <h2 className="text-lg font-semibold">{t('tracker.recentRecords')}</h2>
           <span className="text-sm text-gray-500">
-            共 {timelogs.length} 条记录
+            {t('tracker.totalRecords', { count: timelogs.length })}
           </span>
         </div>
 
@@ -171,7 +167,7 @@ export default function TrackerPage() {
         ) : timelogs.length === 0 ? (
           <div className="text-center py-8">
             <Clock className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">还没有时间记录</p>
+            <p className="text-gray-500">{t('tracker.noRecords')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -194,17 +190,17 @@ export default function TrackerPage() {
                           </span>
                         )}
                         <span className="font-medium">
-                          {goal ? `Q${goal.quarter}: ${goal.title}` : "未知目标"}
+                          {goal ? `Q${goal.quarter}: ${goal.title}` : t('tracker.unknownGoal')}
                         </span>
                         <span className={`text-xs px-2 py-0.5 rounded ${
                           log.log_type === "clock_in" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
                         }`}>
-                          {log.log_type === "clock_in" ? "打卡" : "补录"}
+                          {log.log_type === "clock_in" ? t('tracker.clockIn') : t('tracker.manual')}
                         </span>
                       </div>
                       <div className="text-sm text-gray-500 mt-1">
-                        {formatDateTime(log.start_time)}
-                        {log.end_time && ` - ${formatDateTime(log.end_time)}`}
+                        {formatDateTime(log.start_time, locale)}
+                        {log.end_time && ` - ${formatDateTime(log.end_time, locale)}`}
                       </div>
                       {log.note && (
                         <p className="text-sm text-gray-600 mt-1">{log.note}</p>
@@ -213,7 +209,7 @@ export default function TrackerPage() {
                     <div className="flex items-center gap-3">
                       {log.duration_minutes && (
                         <span className="text-lg font-semibold text-primary-600">
-                          {formatDuration(log.duration_minutes)}
+                          {formatDuration(log.duration_minutes, locale)}
                         </span>
                       )}
                       {!log.is_running && (
@@ -237,16 +233,16 @@ export default function TrackerPage() {
       <Modal
         isOpen={isManualModalOpen}
         onClose={() => setIsManualModalOpen(false)}
-        title="手动补录"
+        title={t('tracker.manualEntry')}
       >
         <form onSubmit={handleManualSubmit} className="space-y-4">
           <Select
             id="manual-goal"
-            label="选择目标"
+            label={t('tracker.selectGoal')}
             value={manualData.goal_id}
             onChange={(e) => setManualData((prev) => ({ ...prev, goal_id: e.target.value }))}
             options={[
-              { value: "", label: "请选择季度目标" },
+              { value: "", label: t('tracker.selectQuarterlyGoal') },
               ...goals.map((g) => ({
                 value: g.id,
                 label: `Q${g.quarter}: ${g.title}`,
@@ -258,7 +254,7 @@ export default function TrackerPage() {
           <Input
             id="start-time"
             type="datetime-local"
-            label="开始时间"
+            label={t('tracker.startTime')}
             value={manualData.start_time}
             onChange={(e) => setManualData((prev) => ({ ...prev, start_time: e.target.value }))}
             required
@@ -267,7 +263,7 @@ export default function TrackerPage() {
           <Input
             id="end-time"
             type="datetime-local"
-            label="结束时间"
+            label={t('tracker.endTime')}
             value={manualData.end_time}
             onChange={(e) => setManualData((prev) => ({ ...prev, end_time: e.target.value }))}
             required
@@ -275,18 +271,18 @@ export default function TrackerPage() {
 
           <Input
             id="manual-note"
-            label="备注 (可选)"
-            placeholder="记录你做了什么..."
+            label={t('tracker.note')}
+            placeholder={t('tracker.notePlaceholder')}
             value={manualData.note}
             onChange={(e) => setManualData((prev) => ({ ...prev, note: e.target.value }))}
           />
 
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsManualModalOpen(false)} className="flex-1">
-              取消
+              {t('common.cancel')}
             </Button>
             <Button type="submit" className="flex-1">
-              保存
+              {t('common.save')}
             </Button>
           </div>
         </form>
