@@ -219,7 +219,7 @@ export const timelogApi = {
   },
 
   async createManual(data: TimeLogManual): Promise<TimeLog> {
-    const response = await api.post("/api/v1/timelogs/manual", data);
+    const response = await api.post("/api/v1/timelogs", data);
     return response.data;
   },
 
