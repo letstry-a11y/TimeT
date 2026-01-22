@@ -406,6 +406,7 @@ export default function TrackerPage() {
                     time: parseUtcDateString(currentSession.start_time).toLocaleTimeString(locale, {
                       hour: "2-digit",
                       minute: "2-digit",
+                      hour12: false,
                     }),
                   })}
                 </p>

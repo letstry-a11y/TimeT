@@ -117,7 +117,7 @@ export default function DashboardPage() {
               <div>
                 <p className="font-medium text-green-800">{t('dashboard.inProgress')}</p>
                 <p className="text-sm text-green-600">
-                  {t('dashboard.startedAt', { time: parseUtcDateString(currentSession.start_time).toLocaleTimeString(locale) })}
+                  {t('dashboard.startedAt', { time: parseUtcDateString(currentSession.start_time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false }) })}
                 </p>
               </div>
             </div>

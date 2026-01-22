@@ -143,7 +143,7 @@ export function toDateString(date: Date | undefined): string {
 export function formatTimeOnly(dateString: string | undefined, locale: string = 'en-US'): string {
   if (!dateString) return '';
   const date = parseUtcDateString(dateString);
-  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 export function parseUtcDateString(dateString: string | undefined): Date {

@@ -1,33 +1,47 @@
+# TimeTracker 启动步骤
 
-启动后端
-这是一个 FastAPI 后端服务的启动脚本，使用 uvicorn 在 8000 端口运行。让我启动它。
+## 环境要求
+- Python 3.10+
+- Node.js 18+
+- npm
 
-● Bash(cd "D:\ai demo\TimeTrackVersion\backend" && python run.py)
-  ⎿  Running in the background (↓ to manage)
+## 1. 启动后端服务
 
-● 找到了！这个应用的 API 路由有前缀。以下是可用的访问地址：
-  ┌────────────────────────────────────┬──────────────────────┐
-  │                地址                │         说明         │
-  ├────────────────────────────────────┼──────────────────────┤
-  │ http://localhost:8000/health       │ 健康检查             │
-  ├────────────────────────────────────┼──────────────────────┤
-  │ http://localhost:8000/api/v1/docs  │ Swagger API 文档界面 │
-  ├────────────────────────────────────┼──────────────────────┤
-  │ http://localhost:8000/api/v1/redoc │ ReDoc API 文
+```bash
+cd backend
+pip install -r requirements.txt    # 首次运行需要安装依赖
+python run.py
+```
 
+后端服务地址:
+- API 服务: http://localhost:8000
+- 健康检查: http://localhost:8000/health
+- API 文档: http://localhost:8000/api/v1/docs
+- ReDoc 文档: http://localhost:8000/api/v1/redoc
 
- 启动前端 
+## 2. 启动前端服务
 
-这是一个 Next.js 前端项目。正在启动前端开发服务器。
+```bash
+cd frontend
+npm install    # 首次运行需要安装依赖
+npm run dev
+```
 
-● Bash(cd "D:\ai demo\TimeTrackVersion\frontend" && npm run dev)
+前端服务地址:
+- 应用界面: http://localhost:3000
 
-服务状态汇总：
-  ┌──────────┬───────────────────────┬───────────┐
-  │   服务   │         地址          │   状态    │
-  ├──────────┼───────────────────────┼───────────┤
-  │ 后端 API │ http://localhost:8000 │ ✅ 运行中 │
-  ├──────────┼───────────────────────┼───────────┤
-  │ 前端界面 │ http://localhost:3000 │ ✅ 运行中 │
-  └──────────┴───────────────────────┴───────────┘
-  请访问 http://localhost:3000 使用 TimeTracker 应用。
+## 3. 访问应用
+
+打开浏览器访问 http://localhost:3000
+
+首次使用需要注册账号:
+1. 点击 "Register" 注册新账号
+2. 填写邮箱、用户名、密码
+3. 注册成功后登录即可使用
+
+## 服务状态汇总
+
+| 服务     | 地址                    | 说明           |
+|----------|-------------------------|----------------|
+| 后端 API | http://localhost:8000   | FastAPI 服务   |
+| 前端界面 | http://localhost:3000   | Next.js 应用   |
