@@ -403,7 +403,7 @@ export default function TrackerPage() {
                 </p>
                 <p className="text-sm text-green-600">
                   {t("dashboard.startedAt", {
-                    time: new Date(currentSession.start_time).toLocaleTimeString(locale, {
+                    time: parseUtcDateString(currentSession.start_time).toLocaleTimeString(locale, {
                       hour: "2-digit",
                       minute: "2-digit",
                     }),
