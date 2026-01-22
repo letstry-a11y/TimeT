@@ -51,10 +51,19 @@ interface DayGroup {
 
 // Helper to convert ISO string to datetime-local format
 const toDateTimeLocal = (isoString: string) => {
-  const date = new Date(isoString);
-  const offset = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - offset * 60 * 1000);
-  return localDate.toISOString().slice(0, 16);
+  // Backend stores UTC time, so we need to convert to local time
+  // If the string doesn't have 'Z', append it to ensure correct UTC parsing
+  const utcString = isoString.endsWith('Z') ? isoString : isoString + 'Z';
+  const date = new Date(utcString);
+
+  // Format as local datetime-local string (YYYY-MM-DDTHH:mm)
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
 export default function TrackerPage() {
