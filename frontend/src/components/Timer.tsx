@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, Square } from "lucide-react";
+import { Play, Square, Clock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useTranslation } from "@/i18n";
+import { cn } from "@/lib/utils";
 
 interface TimerProps {
   isRunning: boolean;
@@ -13,9 +14,17 @@ interface TimerProps {
   disabled?: boolean;
 }
 
-export function Timer({ isRunning, startTime, onStart, onStop, disabled }: TimerProps) {
+// 格式化时间的辅助函数
+export function formatElapsed(seconds: number): string {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+}
+
+// 计算已过时间的 hook
+export function useElapsedTime(isRunning: boolean, startTime?: string): number {
   const [elapsed, setElapsed] = useState(0);
-  const { t } = useTranslation();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -38,12 +47,50 @@ export function Timer({ isRunning, startTime, onStart, onStop, disabled }: Timer
     };
   }, [isRunning, startTime]);
 
-  const formatElapsed = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+  return elapsed;
+}
+
+// 紧凑型计时器显示组件
+interface CompactTimerDisplayProps {
+  elapsed: number;
+  isRunning: boolean;
+}
+
+export function CompactTimerDisplay({ elapsed, isRunning }: CompactTimerDisplayProps) {
+  return (
+    <span className={cn(
+      "text-2xl font-mono font-bold tabular-nums",
+      isRunning ? "text-green-700" : "text-gray-900"
+    )}>
+      {formatElapsed(elapsed)}
+    </span>
+  );
+}
+
+// 状态指示器组件
+interface StatusIndicatorProps {
+  isRunning: boolean;
+}
+
+export function StatusIndicator({ isRunning }: StatusIndicatorProps) {
+  return (
+    <div className={cn(
+      "p-2 rounded-full shrink-0",
+      isRunning ? "bg-green-500" : "bg-gray-100"
+    )}>
+      {isRunning ? (
+        <Play className="h-4 w-4 text-white" />
+      ) : (
+        <Clock className="h-4 w-4 text-gray-500" />
+      )}
+    </div>
+  );
+}
+
+// 原有的大型计时器组件（保留向后兼容）
+export function Timer({ isRunning, startTime, onStart, onStop, disabled }: TimerProps) {
+  const elapsed = useElapsedTime(isRunning, startTime);
+  const { t } = useTranslation();
 
   return (
     <div className="text-center">

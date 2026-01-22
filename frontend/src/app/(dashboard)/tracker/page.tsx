@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
-import { Timer } from "@/components/Timer";
+import { useElapsedTime, formatElapsed, StatusIndicator, CompactTimerDisplay } from "@/components/Timer";
 import { useGoals } from "@/hooks/useGoals";
 import { useTimelogs } from "@/hooks/useTimelogs";
 import { useTranslation } from "@/i18n";
 import {
+  cn,
   getCurrentYear,
   formatDuration,
   getWeekDates,
@@ -35,6 +36,8 @@ import {
   FileText,
   CalendarClock,
   Pencil,
+  Play,
+  Square,
 } from "lucide-react";
 
 type ViewMode = "day" | "week";
@@ -70,6 +73,9 @@ export default function TrackerPage() {
     refetch,
   } = useTimelogs();
   const { t, locale } = useTranslation();
+
+  // Timer elapsed time
+  const elapsed = useElapsedTime(!!currentSession, currentSession?.start_time);
 
   // State for timer section
   const [selectedGoalId, setSelectedGoalId] = useState("");
@@ -378,14 +384,35 @@ export default function TrackerPage() {
         </div>
       </div>
 
-      {/* Timer Section */}
-      <Card className="py-8">
-        <div className="max-w-md mx-auto">
-          {!currentSession && (
-            <div className="mb-8">
+      {/* Timer Section - Compact Layout */}
+      <Card className={cn(
+        "p-4 transition-colors",
+        currentSession && "border-green-200 bg-green-50"
+      )}>
+        {/* Row 1: Main controls */}
+        <div className="flex items-center gap-4">
+          {/* Status indicator */}
+          <StatusIndicator isRunning={!!currentSession} />
+
+          {/* Goal selector or current goal */}
+          <div className="flex-1 min-w-0">
+            {currentSession && currentGoal ? (
+              <div>
+                <p className="font-medium text-green-800 truncate">
+                  Q{currentGoal.quarter}: {currentGoal.title}
+                </p>
+                <p className="text-sm text-green-600">
+                  {t("dashboard.startedAt", {
+                    time: new Date(currentSession.start_time).toLocaleTimeString(locale, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
+                  })}
+                </p>
+              </div>
+            ) : (
               <Select
                 id="goal"
-                label={t("tracker.selectGoal")}
                 value={selectedGoalId}
                 onChange={(e) => setSelectedGoalId(e.target.value)}
                 options={[
@@ -396,35 +423,48 @@ export default function TrackerPage() {
                   })),
                 ]}
               />
-            </div>
-          )}
+            )}
+          </div>
 
-          {currentSession && currentGoal && (
-            <div className="text-center mb-6">
-              <p className="text-sm text-gray-500">{t("dashboard.inProgress")}</p>
-              <p className="text-lg font-semibold text-primary-600">
-                Q{currentGoal.quarter}: {currentGoal.title}
-              </p>
-            </div>
-          )}
-
-          <Timer
+          {/* Timer display */}
+          <CompactTimerDisplay
+            elapsed={elapsed}
             isRunning={!!currentSession}
-            startTime={currentSession?.start_time}
-            onStart={handleStart}
-            onStop={handleStop}
-            disabled={!selectedGoalId || goals.length === 0}
           />
 
-          <div className="mt-8">
-            <Input
-              id="note"
-              label={t("tracker.note")}
-              placeholder={t("tracker.notePlaceholder")}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
+          {/* Action button */}
+          {currentSession ? (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleStop}
+              className="w-24 shrink-0"
+            >
+              <Square className="h-4 w-4 mr-1" />
+              {t("timer.stop")}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleStart}
+              disabled={!selectedGoalId || goals.length === 0}
+              className="w-24 shrink-0"
+            >
+              <Play className="h-4 w-4 mr-1" />
+              {t("timer.start")}
+            </Button>
+          )}
+        </div>
+
+        {/* Row 2: Note input */}
+        <div className="mt-3 pl-11">
+          <Input
+            id="note"
+            placeholder={t("tracker.notePlaceholder")}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="text-sm"
+          />
         </div>
       </Card>
 
