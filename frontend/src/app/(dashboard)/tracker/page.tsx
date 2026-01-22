@@ -19,6 +19,7 @@ import {
   isSameDay,
   toDateString,
   formatTimeOnly,
+  parseUtcDateString,
 } from "@/lib/utils";
 import { TimeLog, TimeLogStatus } from "@/types";
 import {
@@ -125,12 +126,13 @@ export default function TrackerPage() {
     const dateMap = new Map<string, DayGroup>();
 
     // Sort logs by start_time descending
+    // 使用 parseUtcDateString 确保正确解析后端返回的 UTC 时间
     const sortedLogs = [...timelogs].sort(
-      (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+      (a, b) => parseUtcDateString(b.start_time).getTime() - parseUtcDateString(a.start_time).getTime()
     );
 
     for (const log of sortedLogs) {
-      const logDate = new Date(log.start_time);
+      const logDate = parseUtcDateString(log.start_time);
       const dateStr = toDateString(logDate);
 
       // Filter by date range based on view mode
@@ -164,7 +166,7 @@ export default function TrackerPage() {
 
     // Sort logs within each group by start_time
     for (const group of groups) {
-      group.logs.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      group.logs.sort((a, b) => parseUtcDateString(a.start_time).getTime() - parseUtcDateString(b.start_time).getTime());
     }
 
     return groups;
