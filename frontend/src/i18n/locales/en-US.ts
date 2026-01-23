@@ -104,6 +104,8 @@ export const enUS: Translations = {
     noGoals: 'No goals yet',
     noGoalsHint: 'Create yearly goals, then break them into quarterly goals',
     noQuarterlyGoals: 'No quarterly goals, ',
+    noQuarterlyGoalsForQuarter: 'No quarterly goals for Q{quarter}',
+    parentGoal: 'Parent Goal',
     clickToAdd: 'click to add',
     deleteConfirm: 'Are you sure you want to delete this goal? Sub-goals will also be deleted.',
     unlinkedQuarterlyGoals: 'Unlinked Quarterly Goals',

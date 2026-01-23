@@ -20,9 +20,9 @@ export default function GoalsPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(null);
 
+  // 不传递 quarter 参数，获取所有目标，然后在前端筛选
   const { goals, isLoading, createGoal, updateGoal, deleteGoal, refetch } = useGoals({
     year: selectedYear,
-    quarter: selectedQuarter || undefined,
   });
   const { visions } = useVisions();
 
@@ -54,8 +54,28 @@ export default function GoalsPage() {
   }, [goals]);
 
   const quarterlyGoals = useMemo(() => {
-    return goals.filter((g) => g.goal_type === "quarterly");
-  }, [goals]);
+    let filtered = goals.filter((g) => g.goal_type === "quarterly");
+
+    // 如果选择了特定季度，只显示该季度的目标
+    if (selectedQuarter) {
+      filtered = filtered.filter((g) => g.quarter === selectedQuarter);
+    }
+
+    // 按父年度目标的 sort_order 排序，再按自身的 sort_order 排序
+    return filtered.sort((a, b) => {
+      const parentA = yearlyGoals.find(y => y.id === a.parent_id);
+      const parentB = yearlyGoals.find(y => y.id === b.parent_id);
+
+      const parentSortA = parentA?.sort_order ?? 0;
+      const parentSortB = parentB?.sort_order ?? 0;
+
+      if (parentSortA !== parentSortB) {
+        return parentSortA - parentSortB;
+      }
+
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+  }, [goals, selectedQuarter, yearlyGoals]);
 
   const getChildGoals = (parentId: string) => {
     return quarterlyGoals.filter((g) => g.parent_id === parentId);
@@ -274,7 +294,99 @@ export default function GoalsPage() {
             {t('goals.createYearlyGoal')}
           </Button>
         </Card>
+      ) : selectedQuarter ? (
+        /* 选择了特定季度时，只显示该季度的目标（扁平列表） */
+        <div className="space-y-4">
+          {quarterlyGoals.length === 0 ? (
+            <Card className="text-center py-12">
+              <Flag className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {t('goals.noQuarterlyGoalsForQuarter', { quarter: selectedQuarter })}
+              </h3>
+              <Button onClick={() => handleOpenCreate("quarterly")}>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('goals.quarterlyGoal')}
+              </Button>
+            </Card>
+          ) : (
+            quarterlyGoals.map((qGoal) => {
+              const parentGoal = yearlyGoals.find(y => y.id === qGoal.parent_id);
+              return (
+                <Card key={qGoal.id} className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                          Q{qGoal.quarter}
+                        </span>
+                        <span className="font-medium">{qGoal.title}</span>
+                      </div>
+                      {parentGoal && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {t('goals.parentGoal')}: {parentGoal.title}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-4 mt-2">
+                        <ProgressBar
+                          value={qGoal.progress_percentage}
+                          size="sm"
+                          className="w-48"
+                        />
+                        <span className="text-sm text-gray-500">
+                          {formatDuration(qGoal.accumulated_hours * 60, locale)}
+                          {qGoal.target_hours && ` / ${qGoal.target_hours}h`}
+                        </span>
+                      </div>
+                    </div>
+                    <select
+                      value={qGoal.status}
+                      onChange={(e) => handleStatusChange(qGoal.id, e.target.value)}
+                      className={`text-xs px-2 py-1 rounded-full border-0 ${getStatusColor(qGoal.status)}`}
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleMoveQuarterlyGoal(qGoal.id, qGoal.parent_id || '', 'up')}
+                        disabled={quarterlyGoals.indexOf(qGoal) === 0}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={t('common.moveUp')}
+                      >
+                        <ArrowUp className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleMoveQuarterlyGoal(qGoal.id, qGoal.parent_id || '', 'down')}
+                        disabled={quarterlyGoals.indexOf(qGoal) === quarterlyGoals.length - 1}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={t('common.moveDown')}
+                      >
+                        <ArrowDown className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenEdit(qGoal)}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg"
+                      >
+                        <Edit2 className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(qGoal.id)}
+                        className="p-1.5 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })
+          )}
+        </div>
       ) : (
+        /* 未选择季度时，显示层级结构（年度目标 + 季度目标） */
         <div className="space-y-4">
           {yearlyGoals.map((yearlyGoal) => {
             const children = getChildGoals(yearlyGoal.id);

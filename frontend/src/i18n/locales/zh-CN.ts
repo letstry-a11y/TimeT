@@ -104,6 +104,8 @@ export const zhCN: Translations = {
     noGoals: '还没有目标',
     noGoalsHint: '创建年度目标，然后分解为季度目标',
     noQuarterlyGoals: '暂无季度目标，',
+    noQuarterlyGoalsForQuarter: 'Q{quarter} 暂无季度目标',
+    parentGoal: '所属年度目标',
     clickToAdd: '点击添加',
     deleteConfirm: '确定要删除这个目标吗？子目标也会被删除。',
     unlinkedQuarterlyGoals: '未关联的季度目标',

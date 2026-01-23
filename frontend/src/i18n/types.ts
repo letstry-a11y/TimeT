@@ -102,6 +102,8 @@ export interface Translations {
     noGoals: string;
     noGoalsHint: string;
     noQuarterlyGoals: string;
+    noQuarterlyGoalsForQuarter: string;
+    parentGoal: string;
     clickToAdd: string;
     deleteConfirm: string;
     unlinkedQuarterlyGoals: string;
