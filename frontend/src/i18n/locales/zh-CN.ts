@@ -15,6 +15,8 @@ export const zhCN: Translations = {
     noData: '暂无数据',
     hours: '小时',
     total: '总计',
+    moveUp: '上移',
+    moveDown: '下移',
   },
 
   nav: {

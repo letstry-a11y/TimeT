@@ -189,9 +189,9 @@ async def update_timelog_status(
 
     timelog = await timelog_crud.update_status(db, timelog, status_update.status)
 
-    # Update goal accumulated hours if status changed to completed
-    if status_update.status == TimeLogStatus.COMPLETED:
-        await update_goal_accumulated_hours(db, timelog.goal_id)
+    # Update goal accumulated hours when status changes
+    # (time should be added when completed, removed when changed from completed)
+    await update_goal_accumulated_hours(db, timelog.goal_id)
 
     return timelog
 

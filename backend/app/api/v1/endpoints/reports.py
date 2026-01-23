@@ -63,10 +63,15 @@ async def get_vision_alignment_report(
 
             if quarterly_ids:
                 # Sum time logs for quarterly goals
+                # Only count: clock_in, manual, or planned with completed status
                 time_query = select(func.sum(TimeLog.duration_minutes)).where(
                     and_(
                         TimeLog.goal_id.in_(quarterly_ids),
                         TimeLog.is_running == False,
+                        or_(
+                            TimeLog.log_type != TimeLogType.PLANNED,
+                            TimeLog.status == TimeLogStatus.COMPLETED,
+                        )
                     )
                 )
                 if start_date:

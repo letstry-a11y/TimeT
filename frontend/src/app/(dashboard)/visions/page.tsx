@@ -11,7 +11,7 @@ import { useTranslation } from "@/i18n";
 import { goalApi } from "@/lib/api";
 import { Vision, Goal } from "@/types";
 import { getStatusColor, getStatusLabel } from "@/lib/utils";
-import { Plus, Edit2, Trash2, Target, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Edit2, Trash2, Target, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
@@ -20,7 +20,7 @@ const COLORS = [
 ];
 
 export default function VisionsPage() {
-  const { visions, isLoading, createVision, updateVision, deleteVision } = useVisions();
+  const { visions, isLoading, createVision, updateVision, deleteVision, refetch } = useVisions();
   const { t, locale } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVision, setEditingVision] = useState<Vision | null>(null);
@@ -105,7 +105,11 @@ export default function VisionsPage() {
       if (editingVision) {
         await updateVision(editingVision.id, formData);
       } else {
-        await createVision(formData);
+        // 新建时设置 sort_order 为最大值 + 1，确保新项目在列表末尾
+        const maxSortOrder = visions.length > 0
+          ? Math.max(...visions.map(v => v.sort_order))
+          : -1;
+        await createVision({ ...formData, sort_order: maxSortOrder + 1 });
       }
       setIsModalOpen(false);
     } catch (err) {
@@ -116,6 +120,27 @@ export default function VisionsPage() {
   const handleDelete = async (id: string) => {
     if (window.confirm(t('visions.deleteConfirm'))) {
       await deleteVision(id);
+    }
+  };
+
+  const handleMoveVision = async (visionId: string, direction: 'up' | 'down') => {
+    const currentIndex = visions.findIndex(v => v.id === visionId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= visions.length) return;
+
+    const currentVision = visions[currentIndex];
+    const targetVision = visions[targetIndex];
+
+    try {
+      // 使用索引作为新的 sort_order（交换后的位置）
+      await updateVision(currentVision.id, { sort_order: targetIndex });
+      await updateVision(targetVision.id, { sort_order: currentIndex });
+      // 重新获取列表以确保顺序正确
+      refetch();
+    } catch (err) {
+      // 错误已在 hook 中处理
     }
   };
 
@@ -177,6 +202,22 @@ export default function VisionsPage() {
                       <h3 className="font-semibold text-lg">{vision.title}</h3>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleMoveVision(vision.id, 'up')}
+                        disabled={visions.indexOf(vision) === 0}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={t('common.moveUp')}
+                      >
+                        <ArrowUp className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleMoveVision(vision.id, 'down')}
+                        disabled={visions.indexOf(vision) === visions.length - 1}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={t('common.moveDown')}
+                      >
+                        <ArrowDown className="h-4 w-4 text-gray-500" />
+                      </button>
                       <button
                         onClick={() => handleOpenEdit(vision)}
                         className="p-1.5 hover:bg-gray-100 rounded-lg"

@@ -12,7 +12,7 @@ import { useVisions } from "@/hooks/useVisions";
 import { useTranslation } from "@/i18n";
 import { Goal, GoalCreate } from "@/types";
 import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration } from "@/lib/utils";
-import { Plus, Edit2, Trash2, Flag, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Flag, ChevronRight, ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
 
 export default function GoalsPage() {
   const { t, locale } = useTranslation();
@@ -126,7 +126,20 @@ export default function GoalsPage() {
         }
         await updateGoal(editingGoal.id, updateData);
       } else {
-        await createGoal(data);
+        // 新建时设置 sort_order 为最大值 + 1，确保新项目在列表末尾
+        let maxSortOrder = -1;
+        if (data.goal_type === "yearly") {
+          maxSortOrder = yearlyGoals.length > 0
+            ? Math.max(...yearlyGoals.map(g => g.sort_order))
+            : -1;
+        } else {
+          // 季度目标只在同一父目标下计算最大值
+          const siblings = quarterlyGoals.filter(g => g.parent_id === data.parent_id);
+          maxSortOrder = siblings.length > 0
+            ? Math.max(...siblings.map(g => g.sort_order))
+            : -1;
+        }
+        await createGoal({ ...data, sort_order: maxSortOrder + 1 });
       }
       setIsModalOpen(false);
       refetch();
@@ -143,6 +156,47 @@ export default function GoalsPage() {
 
   const handleStatusChange = async (goalId: string, status: string) => {
     await updateGoal(goalId, { status });
+  };
+
+  const handleMoveYearlyGoal = async (goalId: string, direction: 'up' | 'down') => {
+    const currentIndex = yearlyGoals.findIndex(g => g.id === goalId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= yearlyGoals.length) return;
+
+    const currentGoal = yearlyGoals[currentIndex];
+    const targetGoal = yearlyGoals[targetIndex];
+
+    try {
+      // 使用索引作为新的 sort_order（交换后的位置）
+      await updateGoal(currentGoal.id, { sort_order: targetIndex });
+      await updateGoal(targetGoal.id, { sort_order: currentIndex });
+      refetch();
+    } catch (err) {
+      // 错误已在 hook 中处理
+    }
+  };
+
+  const handleMoveQuarterlyGoal = async (goalId: string, parentId: string, direction: 'up' | 'down') => {
+    const siblings = quarterlyGoals.filter(g => g.parent_id === parentId);
+    const currentIndex = siblings.findIndex(g => g.id === goalId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
+
+    const currentGoal = siblings[currentIndex];
+    const targetGoal = siblings[targetIndex];
+
+    try {
+      // 使用索引作为新的 sort_order（交换后的位置）
+      await updateGoal(currentGoal.id, { sort_order: targetIndex });
+      await updateGoal(targetGoal.id, { sort_order: currentIndex });
+      refetch();
+    } catch (err) {
+      // 错误已在 hook 中处理
+    }
   };
 
   if (isLoading) {
@@ -273,6 +327,22 @@ export default function GoalsPage() {
                     </select>
                     <div className="flex gap-1">
                       <button
+                        onClick={() => handleMoveYearlyGoal(yearlyGoal.id, 'up')}
+                        disabled={yearlyGoals.indexOf(yearlyGoal) === 0}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={t('common.moveUp')}
+                      >
+                        <ArrowUp className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleMoveYearlyGoal(yearlyGoal.id, 'down')}
+                        disabled={yearlyGoals.indexOf(yearlyGoal) === yearlyGoals.length - 1}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={t('common.moveDown')}
+                      >
+                        <ArrowDown className="h-4 w-4 text-gray-500" />
+                      </button>
+                      <button
                         onClick={() => handleOpenCreate("quarterly", yearlyGoal.id)}
                         className="p-1.5 hover:bg-gray-200 rounded-lg"
                         title={t('goals.addQuarterlyGoal')}
@@ -343,6 +413,22 @@ export default function GoalsPage() {
                               ))}
                             </select>
                             <div className="flex gap-1">
+                              <button
+                                onClick={() => handleMoveQuarterlyGoal(qGoal.id, yearlyGoal.id, 'up')}
+                                disabled={children.indexOf(qGoal) === 0}
+                                className="p-1.5 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                                title={t('common.moveUp')}
+                              >
+                                <ArrowUp className="h-4 w-4 text-gray-500" />
+                              </button>
+                              <button
+                                onClick={() => handleMoveQuarterlyGoal(qGoal.id, yearlyGoal.id, 'down')}
+                                disabled={children.indexOf(qGoal) === children.length - 1}
+                                className="p-1.5 hover:bg-gray-200 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                                title={t('common.moveDown')}
+                              >
+                                <ArrowDown className="h-4 w-4 text-gray-500" />
+                              </button>
                               <button
                                 onClick={() => handleOpenEdit(qGoal)}
                                 className="p-1.5 hover:bg-gray-200 rounded-lg"

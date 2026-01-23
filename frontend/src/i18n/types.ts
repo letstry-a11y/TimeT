@@ -13,6 +13,8 @@ export interface Translations {
     noData: string;
     hours: string;
     total: string;
+    moveUp: string;
+    moveDown: string;
   };
 
   nav: {

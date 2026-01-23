@@ -15,6 +15,8 @@ export const enUS: Translations = {
     noData: 'No data',
     hours: 'hours',
     total: 'Total',
+    moveUp: 'Move Up',
+    moveDown: 'Move Down',
   },
 
   nav: {

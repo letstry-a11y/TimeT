@@ -190,13 +190,27 @@ async def delete_timelog(db: AsyncSession, timelog: TimeLog) -> None:
 async def get_total_hours_for_goal(
     db: AsyncSession, goal_id: uuid.UUID
 ) -> float:
-    """Get total hours logged for a specific goal."""
+    """Get total hours logged for a specific goal.
+
+    Only counts:
+    - Non-planned entries (CLOCK_IN, MANUAL)
+    - Planned entries with status COMPLETED
+
+    Does NOT count:
+    - Planned entries with status PENDING or NOT_COMPLETED
+    """
+    from sqlalchemy import or_
+
     result = await db.execute(
         select(func.sum(TimeLog.duration_minutes))
         .where(
             and_(
                 TimeLog.goal_id == goal_id,
                 TimeLog.is_running == False,
+                or_(
+                    TimeLog.log_type != TimeLogType.PLANNED,
+                    TimeLog.status == TimeLogStatus.COMPLETED,
+                )
             )
         )
     )
@@ -211,7 +225,14 @@ async def get_stats(
     end_date: Optional[date] = None,
     goal_id: Optional[uuid.UUID] = None,
 ) -> dict:
-    """Get time tracking statistics."""
+    """Get time tracking statistics.
+
+    Only counts:
+    - Non-planned entries (CLOCK_IN, MANUAL)
+    - Planned entries with status COMPLETED
+    """
+    from sqlalchemy import or_
+
     query = select(
         func.sum(TimeLog.duration_minutes).label("total_minutes"),
         func.count(TimeLog.id).label("log_count"),
@@ -219,6 +240,10 @@ async def get_stats(
         and_(
             TimeLog.user_id == user_id,
             TimeLog.is_running == False,
+            or_(
+                TimeLog.log_type != TimeLogType.PLANNED,
+                TimeLog.status == TimeLogStatus.COMPLETED,
+            )
         )
     )
 
