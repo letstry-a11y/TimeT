@@ -34,8 +34,26 @@ export default function DashboardPage() {
     fetchWeeklyReport();
   }, []);
 
-  const quarterlyGoals = goals.filter((g) => g.goal_type === "quarterly" && g.quarter === getCurrentQuarter());
   const yearlyGoals = goals.filter((g) => g.goal_type === "yearly");
+
+  // 季度目标需要按父目标的 sort_order 排序，然后再按自身的 sort_order 排序
+  const quarterlyGoals = goals
+    .filter((g) => g.goal_type === "quarterly" && g.quarter === getCurrentQuarter())
+    .sort((a, b) => {
+      // 找到各自的父年度目标
+      const parentA = yearlyGoals.find(y => y.id === a.parent_id);
+      const parentB = yearlyGoals.find(y => y.id === b.parent_id);
+
+      // 先按父目标的 sort_order 排序
+      const parentSortA = parentA?.sort_order ?? 0;
+      const parentSortB = parentB?.sort_order ?? 0;
+      if (parentSortA !== parentSortB) {
+        return parentSortA - parentSortB;
+      }
+
+      // 父目标相同时，按自身的 sort_order 排序
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
 
   return (
     <div className="space-y-6">

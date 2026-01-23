@@ -40,8 +40,19 @@ export default function VisionsPage() {
   const loadVisionGoals = async (visionId: string) => {
     setLoadingGoals(prev => new Set(prev).add(visionId));
     try {
-      const goals = await goalApi.list({ vision_id: visionId });
-      setVisionGoals(prev => ({ ...prev, [visionId]: goals }));
+      // 1. 获取直接关联到愿景的年度目标
+      const yearlyGoals = await goalApi.list({ vision_id: visionId });
+
+      // 2. 获取这些年度目标下的季度目标
+      const quarterlyGoalsPromises = yearlyGoals.map(yearly =>
+        goalApi.list({ parent_id: yearly.id })
+      );
+      const quarterlyGoalsArrays = await Promise.all(quarterlyGoalsPromises);
+      const quarterlyGoals = quarterlyGoalsArrays.flat();
+
+      // 3. 合并年度目标和季度目标
+      const allGoals = [...yearlyGoals, ...quarterlyGoals];
+      setVisionGoals(prev => ({ ...prev, [visionId]: allGoals }));
     } catch (err) {
       console.error("Failed to load vision goals:", err);
     } finally {

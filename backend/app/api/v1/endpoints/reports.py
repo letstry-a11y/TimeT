@@ -32,9 +32,11 @@ async def get_vision_alignment_report(
     """
     Get vision alignment report showing time distribution across visions.
     """
-    # Get all visions for user
+    # Get all visions for user (sorted by sort_order)
     visions_result = await db.execute(
-        select(Vision).where(Vision.user_id == current_user.id)
+        select(Vision)
+        .where(Vision.user_id == current_user.id)
+        .order_by(Vision.sort_order, Vision.created_at.desc())
     )
     visions = visions_result.scalars().all()
 
