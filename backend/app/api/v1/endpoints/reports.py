@@ -2,8 +2,9 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
-from sqlalchemy import select, func, and_, or_, cast, Date
+from sqlalchemy import select, func, and_, or_, cast, Date, case
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.schemas.report import (
@@ -129,7 +130,20 @@ async def get_goal_progress_report(
     if quarter:
         query = query.where(Goal.quarter == quarter)
 
-    result = await db.execute(query.order_by(Goal.goal_type, Goal.sort_order))
+    # Join with parent goal to sort quarterly goals by parent's sort_order
+    ParentGoal = aliased(Goal)
+    query = query.outerjoin(ParentGoal, Goal.parent_id == ParentGoal.id)
+    query = query.order_by(
+        # Yearly goals first, then quarterly
+        Goal.goal_type,
+        # Sort by parent's sort_order (yearly goals sort by own sort_order since parent is null)
+        case(
+            (Goal.parent_id.is_(None), Goal.sort_order),
+            else_=ParentGoal.sort_order,
+        ),
+        Goal.sort_order,
+    )
+    result = await db.execute(query)
     goals = result.scalars().all()
 
     report_data = []

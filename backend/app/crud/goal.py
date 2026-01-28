@@ -97,7 +97,8 @@ async def create_goal(
 async def update_goal(
     db: AsyncSession, goal: Goal, goal_in: GoalUpdate
 ) -> Goal:
-    update_data = goal_in.model_dump(exclude_unset=True)
+    # Use mode="python" to keep enum objects instead of converting to strings
+    update_data = goal_in.model_dump(exclude_unset=True, mode="python")
     for field, value in update_data.items():
         setattr(goal, field, value)
     await db.commit()
@@ -108,11 +109,18 @@ async def update_goal(
 async def update_goal_progress(
     db: AsyncSession, goal: Goal, accumulated_hours: float
 ) -> Goal:
+    from app.models.goal import GoalStatus
+
     goal.accumulated_hours = accumulated_hours
     if goal.target_hours and goal.target_hours > 0:
         goal.progress_percentage = min(
             100.0, (accumulated_hours / float(goal.target_hours)) * 100
         )
+
+    # Auto-update status based on progress
+    if accumulated_hours > 0 and goal.status == GoalStatus.NOT_STARTED:
+        goal.status = GoalStatus.IN_PROGRESS
+
     await db.commit()
     await db.refresh(goal)
     return goal

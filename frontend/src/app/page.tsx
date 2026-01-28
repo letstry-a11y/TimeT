@@ -6,16 +6,22 @@ import { useAuthStore } from "@/store/auth";
 
 export default function Home() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, setLoading } = useAuthStore();
+  const { accessToken, hasHydrated, setLoading } = useAuthStore();
 
   useEffect(() => {
+    // Wait for Zustand to hydrate from localStorage
+    if (!hasHydrated) {
+      return;
+    }
+
     setLoading(false);
-    if (isAuthenticated) {
+    // Check accessToken instead of isAuthenticated since isAuthenticated is not persisted
+    if (accessToken) {
       router.push("/dashboard");
     } else {
       router.push("/login");
     }
-  }, [isAuthenticated, router, setLoading]);
+  }, [hasHydrated, accessToken, router, setLoading]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

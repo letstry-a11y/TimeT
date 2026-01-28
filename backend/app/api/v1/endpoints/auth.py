@@ -10,7 +10,7 @@ from app.core.security import (
     decode_token,
 )
 from app.schemas.user import UserCreate, UserResponse
-from app.schemas.token import Token
+from app.schemas.token import Token, RefreshTokenRequest
 from app.crud import user as user_crud
 
 router = APIRouter()
@@ -73,7 +73,7 @@ async def login(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    refresh_token: str,
+    token_request: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """Refresh access token using refresh token."""
@@ -83,7 +83,7 @@ async def refresh_token(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    payload = decode_token(refresh_token)
+    payload = decode_token(token_request.refresh_token)
     if payload is None:
         raise credentials_exception
 
