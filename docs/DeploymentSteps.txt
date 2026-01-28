@@ -1,0 +1,1 @@
+根据软件的实现使用Docker Compose进行自动部署，请检查docker-compose.yml .env 配置文件以及Dockerfile.backend、Dockerfile.frontend等相关文件是否需要更新
