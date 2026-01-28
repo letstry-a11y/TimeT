@@ -14,6 +14,7 @@ import {
   cn,
   getCurrentYear,
   formatDuration,
+  formatHoursDecimal,
   getWeekDates,
   formatWeekRange,
   formatDayHeader,
@@ -67,7 +68,29 @@ const toDateTimeLocal = (isoString: string) => {
 };
 
 export default function TrackerPage() {
-  const { goals } = useGoals({ year: getCurrentYear(), goal_type: "quarterly" });
+  // Get all goals for the current year (both yearly and quarterly)
+  const { goals: allGoals } = useGoals({ year: getCurrentYear() });
+
+  // Sort quarterly goals by parent yearly goal's sort_order, then by their own sort_order
+  const goals = useMemo(() => {
+    const yearlyGoals = allGoals.filter((g) => g.goal_type === "yearly");
+    const quarterlyGoals = allGoals.filter((g) => g.goal_type === "quarterly");
+
+    return quarterlyGoals.sort((a, b) => {
+      const parentA = yearlyGoals.find((y) => y.id === a.parent_id);
+      const parentB = yearlyGoals.find((y) => y.id === b.parent_id);
+
+      const parentSortA = parentA?.sort_order ?? 0;
+      const parentSortB = parentB?.sort_order ?? 0;
+
+      if (parentSortA !== parentSortB) {
+        return parentSortA - parentSortB;
+      }
+
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+  }, [allGoals]);
+
   const {
     timelogs,
     currentSession,
@@ -154,7 +177,13 @@ export default function TrackerPage() {
       if (viewMode === "day") {
         if (!isSameDay(logDate, currentDate)) continue;
       } else {
-        if (logDate < weekDates.start || logDate > weekDates.end) continue;
+        // weekDates is an array of Date objects [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+        // Set weekStart to start of day and weekEnd to end of day for accurate comparison
+        const weekStart = new Date(weekDates[0]);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekDates[6]);
+        weekEnd.setHours(23, 59, 59, 999);
+        if (logDate < weekStart || logDate > weekEnd) continue;
       }
 
       if (!dateMap.has(dateStr)) {
@@ -489,7 +518,7 @@ export default function TrackerPage() {
             <span className="text-lg font-medium min-w-[200px] text-center">
               {viewMode === "day"
                 ? formatDayHeader(currentDate, locale)
-                : formatWeekRange(weekDates.start, weekDates.end, locale)}
+                : formatWeekRange(weekDates, locale)}
             </span>
             <Button variant="secondary" size="sm" onClick={navigateNext}>
               <ChevronRight className="h-4 w-4" />
@@ -549,7 +578,7 @@ export default function TrackerPage() {
                     </span>
                   </div>
                   <span className="text-sm text-gray-500">
-                    {t("tracker.totalDayHours")}: {formatDuration(group.totalMinutes, locale)}
+                    {t("tracker.totalDayHours")}: {formatHoursDecimal(group.totalMinutes)}
                   </span>
                 </div>
 

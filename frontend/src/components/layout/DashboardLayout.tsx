@@ -8,10 +8,15 @@ import { authApi } from "@/lib/api";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, accessToken, setUser, logout, setLoading } = useAuthStore();
+  const { accessToken, hasHydrated, setUser, logout, setLoading } = useAuthStore();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    // Wait for Zustand to hydrate from localStorage before checking auth
+    if (!hasHydrated) {
+      return;
+    }
+
     const checkAuth = async () => {
       if (!accessToken) {
         router.push("/login");
@@ -23,6 +28,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         setUser(user);
         setIsReady(true);
       } catch (error) {
+        // Only logout if the error is not handled by the interceptor
+        // The interceptor will handle token refresh for 401 errors
         logout();
         router.push("/login");
       } finally {
@@ -31,7 +38,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     };
 
     checkAuth();
-  }, [accessToken, router, setUser, logout, setLoading]);
+  }, [hasHydrated, accessToken, router, setUser, logout, setLoading]);
 
   if (!isReady) {
     return (

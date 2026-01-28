@@ -7,23 +7,47 @@ echo   TimeTracker Development Environment
 echo ========================================
 echo.
 
-:: Check if Python is installed
+:: Detect Python command (try python, python3, py in order)
+set "PYTHON_CMD="
 python --version >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Python is not installed or not in PATH
-    pause
-    exit /b 1
+if not errorlevel 1 (
+    set "PYTHON_CMD=python"
+    goto :python_found
 )
+python3 --version >nul 2>&1
+if not errorlevel 1 (
+    set "PYTHON_CMD=python3"
+    goto :python_found
+)
+py --version >nul 2>&1
+if not errorlevel 1 (
+    set "PYTHON_CMD=py"
+    goto :python_found
+)
+
+:: Try Anaconda default path
+if exist "D:\Anaconda\python.exe" (
+    set "PYTHON_CMD=D:\Anaconda\python.exe"
+    goto :python_found
+)
+
+echo [ERROR] Python is not installed or not in PATH
+echo         Please install Python 3.10+ from https://python.org
+pause
+exit /b 1
+
+:python_found
+echo [OK] Python found: %PYTHON_CMD%
 
 :: Check if Node.js is installed
 node --version >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Node.js is not installed or not in PATH
+    echo         Please install Node.js 18+ from https://nodejs.org
     pause
     exit /b 1
 )
-
-echo [OK] Python and Node.js found
+echo [OK] Node.js found
 echo.
 
 :: Get script directory
@@ -64,7 +88,7 @@ cd ..
 
 echo.
 echo [3/4] Starting Backend Server (Port 8000)...
-start "Backend - TimeTracker" cmd /k "cd /d "%SCRIPT_DIR%backend" && python run.py"
+start "Backend - TimeTracker" cmd /k "cd /d "%SCRIPT_DIR%backend" && %PYTHON_CMD% run.py"
 
 :: Wait for backend to start
 timeout /t 3 /nobreak >nul
@@ -79,7 +103,7 @@ echo ========================================
 echo.
 echo   Frontend: http://localhost:3000
 echo   Backend:  http://localhost:8000
-echo   API Docs: http://localhost:8000/docs
+echo   API Docs: http://localhost:8000/api/v1/docs
 echo.
 echo   Press any key to open in browser...
 echo   Close this window to stop info display.

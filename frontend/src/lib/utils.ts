@@ -155,3 +155,11 @@ export function parseUtcDateString(dateString: string | undefined): Date {
   }
   return new Date(dateString);
 }
+
+export function formatHoursDecimal(minutes: number | undefined): string {
+  if (!minutes || minutes <= 0) {
+    return '0.0h';
+  }
+  const hours = minutes / 60;
+  return `${hours.toFixed(1)}h`;
+}
