@@ -1,0 +1,10 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "124",
+    "ANTHROPIC_BASE_URL": "http://192.168.199.45:10814/anthropic",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "empty",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "DeepSeek-V3.1",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "DeepSeek-V3.1",
+    "ANTHROPIC_MODEL": "DeepSeek-V3.1"
+  }
+}

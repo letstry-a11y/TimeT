@@ -1,32 +1,59 @@
-# Backend Dockerfile
+# Backend Dockerfile (SQLite Mode)
 FROM python:3.11-slim
 
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    ```dockerfile
+    # Backend Dockerfile (multi-stage, production-ready)
+    FROM python:3.11-slim AS builder
 
-# Install Python dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+    WORKDIR /install
 
-# Copy application code
-COPY backend/app ./app
-COPY backend/alembic ./alembic
-COPY backend/alembic.ini .
+    # Install build dependencies
+    RUN apt-get update && apt-get install -y \
+        build-essential \
+        libpq-dev \
+        curl \
+        && rm -rf /var/lib/apt/lists/*
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
+    # Install Python dependencies into a local prefix
+    COPY backend/requirements.txt .
+    RUN pip install --upgrade pip \
+        && pip install --no-cache-dir --prefix=/opt/venv -r requirements.txt
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+    FROM python:3.11-slim
 
-# Expose port
-EXPOSE 8000
+    WORKDIR /app
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # Minimal runtime deps (curl used by healthcheck)
+    RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+    # Copy virtualenv from builder
+    COPY --from=builder /opt/venv /opt/venv
+    ENV PATH="/opt/venv/bin:$PATH"
+
+    # Copy application code
+    COPY backend/app ./app
+    COPY backend/alembic ./alembic
+    COPY backend/alembic.ini .
+
+    # Create data directory for SQLite with proper permissions
+    RUN mkdir -p /app/data && chmod 755 /app/data
+
+    # Create non-root user and set ownership
+    RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+    USER appuser
+
+    # Expose port
+    EXPOSE 8000
+
+    # Health check
+    HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+        CMD curl -f http://localhost:8000/health || exit 1
+
+    # Production command: use uvicorn with multiple workers
+    # Can be overridden at runtime if a process manager (gunicorn) is preferred
+    CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    ```
