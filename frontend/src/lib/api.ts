@@ -248,6 +248,9 @@ export const reportApi = {
   async getWeekly(weekStart?: string): Promise<WeeklyReport> {
     const params = new URLSearchParams();
     if (weekStart) params.append("week_start", weekStart);
+    // Send timezone offset in minutes (e.g., 480 for UTC+8)
+    const tzOffset = -new Date().getTimezoneOffset();
+    params.append("tz_offset", String(tzOffset));
 
     const response = await api.get(`/api/v1/reports/weekly?${params.toString()}`);
     return response.data;
