@@ -170,15 +170,24 @@ async def get_goal_progress_report(
 @router.get("/weekly", response_model=WeeklyReport)
 async def get_weekly_report(
     week_start: Optional[date] = Query(None, description="Start date of the week (Monday)"),
+    tz_offset: Optional[int] = Query(None, description="Timezone offset in minutes (e.g., 480 for UTC+8)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Get weekly time tracking report.
     If week_start is not provided, uses the current week.
+    tz_offset: Timezone offset in minutes from UTC (e.g., 480 for UTC+8, -300 for UTC-5)
     """
+    # Default to UTC if no timezone offset provided
+    tz_offset_minutes = tz_offset or 0
+    tz_delta = timedelta(minutes=tz_offset_minutes)
+
     if week_start is None:
-        today = date.today()
+        # Calculate today in user's timezone
+        utc_now = datetime.utcnow()
+        user_local_now = utc_now + tz_delta
+        today = user_local_now.date()
         week_start = today - timedelta(days=today.weekday())
 
     week_end = week_start + timedelta(days=6)
@@ -187,8 +196,13 @@ async def get_weekly_report(
     daily_stats = []
     for i in range(7):
         day = week_start + timedelta(days=i)
-        day_start = datetime.combine(day, datetime.min.time())
-        day_end = datetime.combine(day, datetime.max.time())
+        # Calculate day boundaries in UTC by subtracting timezone offset
+        # e.g., for UTC+8: local 00:00 = UTC 16:00 (previous day)
+        day_start_local = datetime.combine(day, datetime.min.time())
+        day_end_local = datetime.combine(day, datetime.max.time())
+        # Convert local time boundaries to UTC for database query
+        day_start = day_start_local - tz_delta
+        day_end = day_end_local - tz_delta
 
         # Only count: clock_in, manual, or planned with completed status
         result = await db.execute(
@@ -222,6 +236,10 @@ async def get_weekly_report(
     total_hours = sum(d.hours for d in daily_stats)
 
     # Get top goals for the week (only count completed time)
+    # Calculate week boundaries in UTC
+    week_start_utc = datetime.combine(week_start, datetime.min.time()) - tz_delta
+    week_end_utc = datetime.combine(week_end, datetime.max.time()) - tz_delta
+
     top_goals_result = await db.execute(
         select(
             Goal.id,
@@ -232,8 +250,8 @@ async def get_weekly_report(
         .where(
             and_(
                 TimeLog.user_id == current_user.id,
-                TimeLog.start_time >= datetime.combine(week_start, datetime.min.time()),
-                TimeLog.start_time <= datetime.combine(week_end, datetime.max.time()),
+                TimeLog.start_time >= week_start_utc,
+                TimeLog.start_time <= week_end_utc,
                 TimeLog.is_running == False,
                 or_(
                     TimeLog.log_type != TimeLogType.PLANNED,

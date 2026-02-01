@@ -1,21 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { authApi } from "@/lib/api";
-import { useTranslation } from "@/i18n";
+import { useTranslation, useLanguageStore } from "@/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import toast from "react-hot-toast";
 import { Clock } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { hasHydrated: langHydrated } = useLanguageStore();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     username: "",
@@ -23,6 +25,13 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Wait for client-side hydration to complete
+  useEffect(() => {
+    if (langHydrated) {
+      setIsHydrated(true);
+    }
+  }, [langHydrated]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -126,7 +135,7 @@ export default function RegisterPage() {
             error={errors.confirmPassword}
           />
 
-          <Button type="submit" className="w-full" isLoading={isLoading}>
+          <Button type="submit" className="w-full" isLoading={isLoading} disabled={!isHydrated}>
             {t('auth.register')}
           </Button>
         </form>
