@@ -42,12 +42,12 @@ class TimeLog(Base):
     )
 
     log_type: Mapped[TimeLogType] = mapped_column(
-        SQLEnum(TimeLogType), nullable=False, default=TimeLogType.CLOCK_IN
+        SQLEnum(TimeLogType, native_enum=False), nullable=False, default=TimeLogType.CLOCK_IN
     )
 
     # Status for planned tasks
     status: Mapped[Optional[TimeLogStatus]] = mapped_column(
-        SQLEnum(TimeLogStatus), nullable=True, default=None
+        SQLEnum(TimeLogStatus, native_enum=False), nullable=True, default=None
     )
 
     # Time tracking

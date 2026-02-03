@@ -46,10 +46,10 @@ class Goal(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     goal_type: Mapped[GoalType] = mapped_column(
-        SQLEnum(GoalType), nullable=False, default=GoalType.QUARTERLY
+        SQLEnum(GoalType, native_enum=False), nullable=False, default=GoalType.QUARTERLY
     )
     status: Mapped[GoalStatus] = mapped_column(
-        SQLEnum(GoalStatus), nullable=False, default=GoalStatus.NOT_STARTED
+        SQLEnum(GoalStatus, native_enum=False), nullable=False, default=GoalStatus.NOT_STARTED
     )
 
     # Time frame
