@@ -1,12 +1,7 @@
-from __future__ import annotations
-
 import uuid
 from datetime import datetime
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from app.schemas.goal import GoalResponse
 
 
 class VisionBase(BaseModel):
@@ -44,4 +39,10 @@ class VisionResponse(VisionBase):
 
 
 class VisionWithGoals(VisionResponse):
-    goals: List[GoalResponse] = []
+    goals: List["GoalResponse"] = []
+
+
+# Forward reference for circular import
+from app.schemas.goal import GoalResponse  # noqa: E402
+
+VisionWithGoals.model_rebuild()
