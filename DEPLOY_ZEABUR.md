@@ -122,9 +122,75 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 ---
 
-## 第七步：初始化数据库
+## 第七步：数据迁移（SQLite → PostgreSQL）
 
-后端首次启动会自动创建数据库表。如果需要手动迁移：
+如果你有本地 SQLite 数据需要迁移到 PostgreSQL，按以下步骤操作。
+
+### 7.1 安装 pgloader
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install pgloader
+
+# Mac
+brew install pgloader
+
+# Windows (使用 Docker)
+docker pull dimitri/pgloader
+```
+
+### 7.2 获取 PostgreSQL 连接信息
+
+1. 在 Zeabur 控制台，点击 PostgreSQL 服务
+2. 点击「Connect」标签
+3. 复制连接字符串（格式：`postgresql://user:pass@host:port/db`）
+
+### 7.3 执行迁移
+
+**Linux/Mac**：
+```bash
+pgloader sqlite:///path/to/backend/timetracker.db \
+  "postgresql://user:password@host:port/database"
+```
+
+**Windows (Docker)**：
+```bash
+# 假设 SQLite 文件在 D:\ai demo\TimeTracker1.1.0\backend\
+docker run --rm -v "D:\ai demo\TimeTracker1.1.0\backend:/data" dimitri/pgloader \
+  pgloader sqlite:///data/timetracker.db \
+  "postgresql://user:password@host:port/database"
+```
+
+### 7.4 验证迁移结果
+
+```bash
+# 使用 psql 连接数据库
+psql "postgresql://user:password@host:port/database"
+
+# 查看所有表
+\dt
+
+# 检查数据量
+SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM visions;
+SELECT COUNT(*) FROM goals;
+SELECT COUNT(*) FROM tasks;
+SELECT COUNT(*) FROM time_logs;
+```
+
+### 注意事项
+
+- **备份原数据**：迁移前先备份 SQLite 文件
+- **类型转换**：pgloader 会自动处理 SQLite 到 PostgreSQL 的类型转换
+- **外键关系**：pgloader 会自动处理表的导入顺序
+
+---
+
+## 第八步：初始化数据库（新部署）
+
+如果是全新部署（不需要迁移旧数据），后端首次启动会自动创建数据库表。
+
+如果需要手动运行迁移：
 
 1. 在 Zeabur 控制台，点击后端服务
 2. 点击「Shell」标签
@@ -135,15 +201,16 @@ alembic upgrade head
 
 ---
 
-## 第八步：验证部署
+## 第九步：验证部署
 
 1. 访问前端域名，应该看到登录页面
 2. 访问 `https://后端域名/api/v1/docs` 查看 API 文档
 3. 访问 `https://后端域名/health` 检查健康状态
+4. 如果迁移了数据，用原账号登录验证数据完整性
 
 ---
 
-## 绑定自定义域名（可选）
+## 第十步：绑定自定义域名（可选）
 
 如果你有自己的域名：
 
