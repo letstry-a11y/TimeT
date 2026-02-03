@@ -1,5 +1,4 @@
 import asyncio
-from typing import Optional
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -28,7 +27,7 @@ async def _aggregate_goal_progress(goal_id: str) -> dict:
             .where(
                 and_(
                     TimeLog.goal_id == goal_uuid,
-                    TimeLog.is_running == False,
+                    TimeLog.is_running.is_(False),
                 )
             )
         )
@@ -77,7 +76,7 @@ async def _aggregate_all_goals() -> dict:
                 .where(
                     and_(
                         TimeLog.goal_id == goal.id,
-                        TimeLog.is_running == False,
+                        TimeLog.is_running.is_(False),
                     )
                 )
             )

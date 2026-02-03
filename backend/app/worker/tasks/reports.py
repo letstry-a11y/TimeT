@@ -1,8 +1,8 @@
 import asyncio
-from datetime import datetime, date, timedelta
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
-from sqlalchemy import select, func, and_, extract
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.worker.celery_app import celery_app
 from app.core.config import settings
@@ -65,7 +65,7 @@ async def _generate_vision_alignment_report(
                     time_query = select(func.sum(TimeLog.duration_minutes)).where(
                         and_(
                             TimeLog.goal_id.in_(quarterly_ids),
-                            TimeLog.is_running == False,
+                            TimeLog.is_running.is_(False),
                         )
                     )
                     if start_dt:

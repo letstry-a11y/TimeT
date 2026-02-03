@@ -1,9 +1,16 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.db.types import GUID
+
+if TYPE_CHECKING:
+    from app.models.vision import Vision
+    from app.models.goal import Goal
+    from app.models.task import Task
+    from app.models.time_log import TimeLog
 
 
 class User(Base):

@@ -1,8 +1,7 @@
-import uuid
 from datetime import date, datetime, timedelta
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
-from sqlalchemy import select, func, and_, or_, cast, Date, case
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from app.db.session import get_db
@@ -70,7 +69,7 @@ async def get_vision_alignment_report(
                 time_query = select(func.sum(TimeLog.duration_minutes)).where(
                     and_(
                         TimeLog.goal_id.in_(quarterly_ids),
-                        TimeLog.is_running == False,
+                        TimeLog.is_running.is_(False),
                         or_(
                             TimeLog.log_type != TimeLogType.PLANNED,
                             TimeLog.status == TimeLogStatus.COMPLETED,
@@ -214,7 +213,7 @@ async def get_weekly_report(
                     TimeLog.user_id == current_user.id,
                     TimeLog.start_time >= day_start,
                     TimeLog.start_time <= day_end,
-                    TimeLog.is_running == False,
+                    TimeLog.is_running.is_(False),
                     or_(
                         TimeLog.log_type != TimeLogType.PLANNED,
                         and_(
@@ -252,7 +251,7 @@ async def get_weekly_report(
                 TimeLog.user_id == current_user.id,
                 TimeLog.start_time >= week_start_utc,
                 TimeLog.start_time <= week_end_utc,
-                TimeLog.is_running == False,
+                TimeLog.is_running.is_(False),
                 or_(
                     TimeLog.log_type != TimeLogType.PLANNED,
                     and_(

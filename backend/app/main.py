@@ -8,7 +8,7 @@ from app.db.session import init_db, AsyncSessionLocal
 
 async def fix_inconsistent_goal_statuses():
     """Fix goals that have accumulated hours but status is still not_started."""
-    from sqlalchemy import select, update
+    from sqlalchemy import update
     from app.models.goal import Goal, GoalStatus
 
     async with AsyncSessionLocal() as session:

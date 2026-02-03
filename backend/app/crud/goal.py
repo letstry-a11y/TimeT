@@ -54,7 +54,7 @@ async def get_goals(
     if parent_id is not None:
         query = query.where(Goal.parent_id == parent_id)
     if not include_archived:
-        query = query.where(Goal.is_archived == False)
+        query = query.where(Goal.is_archived.is_(False))
 
     query = query.order_by(Goal.sort_order, Goal.created_at.desc())
     query = query.offset(skip).limit(limit)
@@ -73,7 +73,7 @@ async def get_yearly_goals(
                 Goal.user_id == user_id,
                 Goal.goal_type == GoalType.YEARLY,
                 Goal.year == year,
-                Goal.is_archived == False,
+                Goal.is_archived.is_(False),
             )
         )
         .order_by(Goal.sort_order)

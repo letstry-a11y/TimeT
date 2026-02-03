@@ -4,7 +4,6 @@ from typing import List, Optional
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.time_log import TimeLog, TimeLogType, TimeLogStatus
-from app.models.goal import Goal
 from app.schemas.timelog import TimeLogManual, TimeLogUpdate, TimeLogPlanned
 
 
@@ -25,7 +24,7 @@ async def get_running_timelog(
     """Get the currently running time log for a user (if any)."""
     result = await db.execute(
         select(TimeLog).where(
-            and_(TimeLog.user_id == user_id, TimeLog.is_running == True)
+            and_(TimeLog.user_id == user_id, TimeLog.is_running.is_(True))
         )
     )
     return result.scalar_one_or_none()
@@ -206,7 +205,7 @@ async def get_total_hours_for_goal(
         .where(
             and_(
                 TimeLog.goal_id == goal_id,
-                TimeLog.is_running == False,
+                TimeLog.is_running.is_(False),
                 or_(
                     TimeLog.log_type != TimeLogType.PLANNED,
                     TimeLog.status == TimeLogStatus.COMPLETED,
@@ -239,7 +238,7 @@ async def get_stats(
     ).where(
         and_(
             TimeLog.user_id == user_id,
-            TimeLog.is_running == False,
+            TimeLog.is_running.is_(False),
             or_(
                 TimeLog.log_type != TimeLogType.PLANNED,
                 TimeLog.status == TimeLogStatus.COMPLETED,

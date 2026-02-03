@@ -38,7 +38,7 @@ async def get_visions(
 ) -> List[Vision]:
     query = select(Vision).where(Vision.user_id == user_id)
     if not include_archived:
-        query = query.where(Vision.is_archived == False)
+        query = query.where(Vision.is_archived.is_(False))
     query = query.order_by(Vision.sort_order, Vision.created_at.desc())
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
