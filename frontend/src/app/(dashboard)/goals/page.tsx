@@ -10,7 +10,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useGoals } from "@/hooks/useGoals";
 import { useVisions } from "@/hooks/useVisions";
 import { useTranslation } from "@/i18n";
-import { Goal, GoalCreate } from "@/types";
+import { Goal, GoalCreate, GoalStatus } from "@/types";
 import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration } from "@/lib/utils";
 import { Plus, Edit2, Trash2, Flag, ChevronRight, ChevronDown, ArrowUp, ArrowDown } from "lucide-react";
 
@@ -174,7 +174,7 @@ export default function GoalsPage() {
     }
   };
 
-  const handleStatusChange = async (goalId: string, status: string) => {
+  const handleStatusChange = async (goalId: string, status: GoalStatus) => {
     await updateGoal(goalId, { status });
   };
 
@@ -340,7 +340,7 @@ export default function GoalsPage() {
                     </div>
                     <select
                       value={qGoal.status}
-                      onChange={(e) => handleStatusChange(qGoal.id, e.target.value)}
+                      onChange={(e) => handleStatusChange(qGoal.id, e.target.value as GoalStatus)}
                       className={`text-xs px-2 py-1 rounded-full border-0 ${getStatusColor(qGoal.status)}`}
                     >
                       {STATUS_OPTIONS.map((opt) => (
@@ -428,7 +428,7 @@ export default function GoalsPage() {
                     </div>
                     <select
                       value={yearlyGoal.status}
-                      onChange={(e) => handleStatusChange(yearlyGoal.id, e.target.value)}
+                      onChange={(e) => handleStatusChange(yearlyGoal.id, e.target.value as GoalStatus)}
                       className={`text-xs px-2 py-1 rounded-full border-0 ${getStatusColor(yearlyGoal.status)}`}
                     >
                       {STATUS_OPTIONS.map((opt) => (
@@ -515,7 +515,7 @@ export default function GoalsPage() {
                             </div>
                             <select
                               value={qGoal.status}
-                              onChange={(e) => handleStatusChange(qGoal.id, e.target.value)}
+                              onChange={(e) => handleStatusChange(qGoal.id, e.target.value as GoalStatus)}
                               className={`text-xs px-2 py-1 rounded-full border-0 ${getStatusColor(qGoal.status)}`}
                             >
                               {STATUS_OPTIONS.map((opt) => (

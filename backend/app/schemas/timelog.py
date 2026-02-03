@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, model_validator
 from app.models.time_log import TimeLogType, TimeLogStatus
 
 

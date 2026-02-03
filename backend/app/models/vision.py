@@ -1,10 +1,14 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Text, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.db.types import GUID
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.goal import Goal
 
 
 class Vision(Base):

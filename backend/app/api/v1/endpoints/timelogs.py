@@ -22,7 +22,7 @@ from app.services.time_tracking import (
     update_goal_accumulated_hours,
 )
 from app.models.user import User
-from app.models.time_log import TimeLogType, TimeLogStatus
+from app.models.time_log import TimeLogType
 
 router = APIRouter()
 

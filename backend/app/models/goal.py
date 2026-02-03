@@ -1,11 +1,17 @@
 import uuid
 from datetime import datetime, date
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Text, DateTime, Date, ForeignKey, Integer, Numeric, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.db.types import GUID
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.vision import Vision
+    from app.models.task import Task
+    from app.models.time_log import TimeLog
 
 
 class GoalType(str, Enum):

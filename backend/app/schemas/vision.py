@@ -43,5 +43,6 @@ class VisionWithGoals(VisionResponse):
 
 
 # Forward reference for circular import
-from app.schemas.goal import GoalResponse
+from app.schemas.goal import GoalResponse  # noqa: E402
+
 VisionWithGoals.model_rebuild()
