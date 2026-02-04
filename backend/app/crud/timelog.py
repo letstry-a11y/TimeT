@@ -8,12 +8,18 @@ from app.schemas.timelog import TimeLogManual, TimeLogUpdate, TimeLogPlanned
 
 
 def to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    """Convert timezone-aware datetime to naive UTC datetime."""
+    """Convert timezone-aware datetime to naive UTC datetime.
+
+    If the datetime has timezone info, it will be converted to UTC first,
+    then the timezone info is removed.
+    """
     if dt is None:
         return None
     if dt.tzinfo is not None:
-        # Convert to UTC and remove timezone info
-        return dt.replace(tzinfo=None)
+        from datetime import timezone
+        # Convert to UTC first, then remove timezone info
+        utc_dt = dt.astimezone(timezone.utc)
+        return utc_dt.replace(tzinfo=None)
     return dt
 
 
