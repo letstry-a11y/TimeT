@@ -7,6 +7,16 @@ from app.models.time_log import TimeLog, TimeLogType, TimeLogStatus
 from app.schemas.timelog import TimeLogManual, TimeLogUpdate, TimeLogPlanned
 
 
+def to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Convert timezone-aware datetime to naive UTC datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        # Convert to UTC and remove timezone info
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 async def get_timelog(
     db: AsyncSession, timelog_id: uuid.UUID, user_id: uuid.UUID
 ) -> Optional[TimeLog]:
@@ -111,8 +121,8 @@ async def create_manual_entry(
         goal_id=timelog_in.goal_id,
         task_id=timelog_in.task_id,
         log_type=TimeLogType.MANUAL,
-        start_time=timelog_in.start_time,
-        end_time=timelog_in.end_time,
+        start_time=to_naive_utc(timelog_in.start_time),
+        end_time=to_naive_utc(timelog_in.end_time),
         duration_minutes=timelog_in.duration_minutes,
         note=timelog_in.note,
         tags=timelog_in.tags,
@@ -136,8 +146,8 @@ async def create_planned(
         task_id=timelog_in.task_id,
         log_type=TimeLogType.PLANNED,
         status=TimeLogStatus.PENDING,
-        start_time=timelog_in.start_time,
-        end_time=timelog_in.end_time,
+        start_time=to_naive_utc(timelog_in.start_time),
+        end_time=to_naive_utc(timelog_in.end_time),
         duration_minutes=timelog_in.duration_minutes,
         note=timelog_in.note,
         tags=timelog_in.tags,
@@ -165,6 +175,12 @@ async def update_timelog(
     db: AsyncSession, timelog: TimeLog, timelog_in: TimeLogUpdate
 ) -> TimeLog:
     update_data = timelog_in.model_dump(exclude_unset=True)
+
+    # Convert timezone-aware datetimes to naive UTC
+    if "start_time" in update_data:
+        update_data["start_time"] = to_naive_utc(update_data["start_time"])
+    if "end_time" in update_data:
+        update_data["end_time"] = to_naive_utc(update_data["end_time"])
 
     # Recalculate duration if times changed
     if "start_time" in update_data or "end_time" in update_data:
