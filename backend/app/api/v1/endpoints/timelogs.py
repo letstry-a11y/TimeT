@@ -35,13 +35,24 @@ async def list_timelogs(
     task_id: Optional[uuid.UUID] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
-    log_type: Optional[TimeLogType] = Query(None),
+    log_type: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Get time logs for the current user with optional filters.
     """
+    # Normalize log_type to lowercase for case-insensitive matching
+    log_type_enum = None
+    if log_type:
+        try:
+            log_type_enum = TimeLogType(log_type.lower())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid log_type: {log_type}. Must be one of: clock_in, manual, planned",
+            )
+
     timelogs = await timelog_crud.get_timelogs(
         db,
         current_user.id,
@@ -51,7 +62,7 @@ async def list_timelogs(
         task_id,
         start_date,
         end_date,
-        log_type,
+        log_type_enum,
     )
     return timelogs
 
