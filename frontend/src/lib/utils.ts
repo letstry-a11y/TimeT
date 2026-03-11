@@ -148,12 +148,9 @@ export function formatTimeOnly(dateString: string | undefined, locale: string = 
 
 export function parseUtcDateString(dateString: string | undefined): Date {
   if (!dateString) return new Date();
-  // Backend stores UTC time, but may not include "Z" suffix
-  // Ensure proper UTC parsing
-  if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
-    return new Date(dateString + 'Z');
-  }
-  return new Date(dateString);
+  // Backend returns naive UTC datetime, add Z suffix so JS interprets as UTC
+  const withZ = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+  return new Date(withZ);
 }
 
 export function formatHoursDecimal(minutes: number | undefined): string {
