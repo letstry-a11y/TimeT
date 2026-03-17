@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from app.utils.timezone import now_beijing
 from typing import Optional
 from uuid import UUID
 from sqlalchemy import select, func, and_
@@ -92,7 +93,7 @@ async def _generate_vision_alignment_report(
 
         return {
             "report_type": "vision_alignment",
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": now_beijing().isoformat(),
             "total_hours": total_hours,
             "data": report_data,
         }
@@ -137,7 +138,7 @@ async def _generate_goal_progress_report(
 
         return {
             "report_type": "goal_progress",
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": now_beijing().isoformat(),
             "year": year,
             "quarter": quarter,
             "data": report_data,

@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
+from app.utils.timezone import now_beijing
 from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -103,7 +104,7 @@ async def get_vision_alignment_report(
             item.percentage = round((item.hours / total_hours) * 100, 2)
 
     return VisionAlignmentReport(
-        generated_at=datetime.utcnow(),
+        generated_at=now_beijing(),
         total_hours=round(total_hours, 2),
         data=report_data,
     )
@@ -159,7 +160,7 @@ async def get_goal_progress_report(
         ))
 
     return GoalProgressReport(
-        generated_at=datetime.utcnow(),
+        generated_at=now_beijing(),
         year=year,
         quarter=quarter,
         data=report_data,
@@ -169,39 +170,27 @@ async def get_goal_progress_report(
 @router.get("/weekly", response_model=WeeklyReport)
 async def get_weekly_report(
     week_start: Optional[date] = Query(None, description="Start date of the week (Monday)"),
-    tz_offset: Optional[int] = Query(None, description="Timezone offset in minutes (e.g., 480 for UTC+8)"),
+    tz_offset: Optional[int] = Query(None, description="Deprecated, ignored. Kept for backwards compatibility."),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Get weekly time tracking report.
     If week_start is not provided, uses the current week.
-    tz_offset: Timezone offset in minutes from UTC (e.g., 480 for UTC+8, -300 for UTC-5)
+    All times are in Beijing time (UTC+8).
     """
-    # Default to UTC if no timezone offset provided
-    tz_offset_minutes = tz_offset or 0
-    tz_delta = timedelta(minutes=tz_offset_minutes)
-
     if week_start is None:
-        # Calculate today in user's timezone
-        utc_now = datetime.utcnow()
-        user_local_now = utc_now + tz_delta
-        today = user_local_now.date()
+        today = now_beijing().date()
         week_start = today - timedelta(days=today.weekday())
 
     week_end = week_start + timedelta(days=6)
 
-    # Get daily breakdown
+    # Get daily breakdown - database stores Beijing time directly
     daily_stats = []
     for i in range(7):
         day = week_start + timedelta(days=i)
-        # Calculate day boundaries in UTC by subtracting timezone offset
-        # e.g., for UTC+8: local 00:00 = UTC 16:00 (previous day)
-        day_start_local = datetime.combine(day, datetime.min.time())
-        day_end_local = datetime.combine(day, datetime.max.time())
-        # Convert local time boundaries to UTC for database query
-        day_start = day_start_local - tz_delta
-        day_end = day_end_local - tz_delta
+        day_start = datetime.combine(day, datetime.min.time())
+        day_end = datetime.combine(day, datetime.max.time())
 
         # Only count: clock_in, manual, or planned with completed status
         result = await db.execute(
@@ -234,10 +223,9 @@ async def get_weekly_report(
 
     total_hours = sum(d.hours for d in daily_stats)
 
-    # Get top goals for the week (only count completed time)
-    # Calculate week boundaries in UTC
-    week_start_utc = datetime.combine(week_start, datetime.min.time()) - tz_delta
-    week_end_utc = datetime.combine(week_end, datetime.max.time()) - tz_delta
+    # Get top goals for the week
+    week_start_dt = datetime.combine(week_start, datetime.min.time())
+    week_end_dt = datetime.combine(week_end, datetime.max.time())
 
     top_goals_result = await db.execute(
         select(
@@ -249,8 +237,8 @@ async def get_weekly_report(
         .where(
             and_(
                 TimeLog.user_id == current_user.id,
-                TimeLog.start_time >= week_start_utc,
-                TimeLog.start_time <= week_end_utc,
+                TimeLog.start_time >= week_start_dt,
+                TimeLog.start_time <= week_end_dt,
                 TimeLog.is_running.is_(False),
                 or_(
                     TimeLog.log_type != TimeLogType.PLANNED,

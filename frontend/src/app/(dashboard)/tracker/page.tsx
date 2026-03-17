@@ -52,10 +52,9 @@ interface DayGroup {
 
 // Helper to convert ISO string to datetime-local format
 const toDateTimeLocal = (isoString: string) => {
-  // Backend returns naive UTC datetime, add Z so JS interprets as UTC
-  const withZ = isoString.endsWith('Z') ? isoString : isoString + 'Z';
-  const date = new Date(withZ);
-  // date.getXxx() now returns local time correctly
+  // Backend returns naive Beijing time, parse directly
+  const cleaned = isoString.endsWith('Z') ? isoString.slice(0, -1) : isoString;
+  const date = new Date(cleaned);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -259,8 +258,8 @@ export default function TrackerPage() {
 
     await createManual({
       goal_id: manualData.goal_id,
-      start_time: new Date(manualData.start_time).toISOString(),
-      end_time: new Date(manualData.end_time).toISOString(),
+      start_time: manualData.start_time,
+      end_time: manualData.end_time,
       note: manualData.note || undefined,
     });
 
@@ -280,8 +279,8 @@ export default function TrackerPage() {
 
     await createPlanned({
       goal_id: planData.goal_id,
-      start_time: new Date(planData.start_time).toISOString(),
-      end_time: new Date(planData.end_time).toISOString(),
+      start_time: planData.start_time,
+      end_time: planData.end_time,
       note: planData.note || undefined,
     });
 
@@ -318,8 +317,8 @@ export default function TrackerPage() {
 
     await updateTimelog(editData.id, {
       goal_id: editData.goal_id,
-      start_time: new Date(editData.start_time).toISOString(),
-      end_time: new Date(editData.end_time).toISOString(),
+      start_time: editData.start_time,
+      end_time: editData.end_time,
       duration_minutes: durationMinutes,
       note: editData.note || undefined,
     });

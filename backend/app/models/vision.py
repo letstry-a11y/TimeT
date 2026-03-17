@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from app.utils.timezone import now_beijing
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Text, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,9 +28,9 @@ class Vision(Base):
     icon: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # Icon name
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_archived: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_beijing)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, default=now_beijing, onupdate=now_beijing
     )
 
     # Relationships

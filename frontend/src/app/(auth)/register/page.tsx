@@ -135,7 +135,7 @@ export default function RegisterPage() {
             error={errors.confirmPassword}
           />
 
-          <Button type="submit" className="w-full" isLoading={isLoading} disabled={!isHydrated}>
+          <Button type="submit" className="w-full" isLoading={isLoading}>
             {t('auth.register')}
           </Button>
         </form>

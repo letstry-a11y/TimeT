@@ -5,22 +5,7 @@ from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.time_log import TimeLog, TimeLogType, TimeLogStatus
 from app.schemas.timelog import TimeLogManual, TimeLogUpdate, TimeLogPlanned
-
-
-def to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    """Convert timezone-aware datetime to naive UTC datetime.
-
-    If the datetime has timezone info, it will be converted to UTC first,
-    then the timezone info is removed.
-    """
-    if dt is None:
-        return None
-    if dt.tzinfo is not None:
-        from datetime import timezone
-        # Convert to UTC first, then remove timezone info
-        utc_dt = dt.astimezone(timezone.utc)
-        return utc_dt.replace(tzinfo=None)
-    return dt
+from app.utils.timezone import now_beijing, to_naive_beijing
 
 
 async def get_timelog(
@@ -89,7 +74,7 @@ async def create_clock_in(
         goal_id=goal_id,
         task_id=task_id,
         log_type=TimeLogType.CLOCK_IN,
-        start_time=datetime.utcnow(),
+        start_time=now_beijing(),
         note=note,
         tags=tags,
         is_running=True,
@@ -105,7 +90,7 @@ async def stop_clock_in(
     timelog: TimeLog,
     note: Optional[str] = None,
 ) -> TimeLog:
-    end_time = datetime.utcnow()
+    end_time = now_beijing()
     timelog.end_time = end_time
     timelog.is_running = False
     timelog.duration_minutes = (end_time - timelog.start_time).total_seconds() / 60
@@ -127,8 +112,8 @@ async def create_manual_entry(
         goal_id=timelog_in.goal_id,
         task_id=timelog_in.task_id,
         log_type=TimeLogType.MANUAL,
-        start_time=to_naive_utc(timelog_in.start_time),
-        end_time=to_naive_utc(timelog_in.end_time),
+        start_time=to_naive_beijing(timelog_in.start_time),
+        end_time=to_naive_beijing(timelog_in.end_time),
         duration_minutes=timelog_in.duration_minutes,
         note=timelog_in.note,
         tags=timelog_in.tags,
@@ -152,8 +137,8 @@ async def create_planned(
         task_id=timelog_in.task_id,
         log_type=TimeLogType.PLANNED,
         status=TimeLogStatus.PENDING,
-        start_time=to_naive_utc(timelog_in.start_time),
-        end_time=to_naive_utc(timelog_in.end_time),
+        start_time=to_naive_beijing(timelog_in.start_time),
+        end_time=to_naive_beijing(timelog_in.end_time),
         duration_minutes=timelog_in.duration_minutes,
         note=timelog_in.note,
         tags=timelog_in.tags,
@@ -182,11 +167,11 @@ async def update_timelog(
 ) -> TimeLog:
     update_data = timelog_in.model_dump(exclude_unset=True)
 
-    # Convert timezone-aware datetimes to naive UTC
+    # Convert timezone-aware datetimes to naive Beijing time
     if "start_time" in update_data:
-        update_data["start_time"] = to_naive_utc(update_data["start_time"])
+        update_data["start_time"] = to_naive_beijing(update_data["start_time"])
     if "end_time" in update_data:
-        update_data["end_time"] = to_naive_utc(update_data["end_time"])
+        update_data["end_time"] = to_naive_beijing(update_data["end_time"])
 
     # Recalculate duration if times changed
     if "start_time" in update_data or "end_time" in update_data:

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, date
+from app.utils.timezone import now_beijing
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, Text, DateTime, Date, ForeignKey, Integer, Enum as SQLEnum
@@ -54,9 +55,9 @@ class Task(Base):
 
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now_beijing)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, default=now_beijing, onupdate=now_beijing
     )
 
     # Relationships

@@ -99,7 +99,7 @@ export default function LoginPage() {
             error={errors.password}
           />
 
-          <Button type="submit" className="w-full" isLoading={isLoading} disabled={!isHydrated}>
+          <Button type="submit" className="w-full" isLoading={isLoading}>
             {t('auth.login')}
           </Button>
         </form>

@@ -148,9 +148,10 @@ export function formatTimeOnly(dateString: string | undefined, locale: string = 
 
 export function parseUtcDateString(dateString: string | undefined): Date {
   if (!dateString) return new Date();
-  // Backend returns naive UTC datetime, add Z suffix so JS interprets as UTC
-  const withZ = dateString.endsWith('Z') ? dateString : dateString + 'Z';
-  return new Date(withZ);
+  // Backend returns naive Beijing time, parse directly as local time
+  // Remove any trailing Z to avoid UTC interpretation
+  const cleaned = dateString.endsWith('Z') ? dateString.slice(0, -1) : dateString;
+  return new Date(cleaned);
 }
 
 export function formatHoursDecimal(minutes: number | undefined): string {

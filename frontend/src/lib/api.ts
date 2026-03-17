@@ -17,7 +17,7 @@ import {
   GoalProgressReport,
 } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -44,7 +44,8 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthRequest = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/register');
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true;
 
       const refreshToken = useAuthStore.getState().refreshToken;
@@ -248,9 +249,6 @@ export const reportApi = {
   async getWeekly(weekStart?: string): Promise<WeeklyReport> {
     const params = new URLSearchParams();
     if (weekStart) params.append("week_start", weekStart);
-    // Send timezone offset in minutes (e.g., 480 for UTC+8)
-    const tzOffset = -new Date().getTimezoneOffset();
-    params.append("tz_offset", String(tzOffset));
 
     const response = await api.get(`/api/v1/reports/weekly?${params.toString()}`);
     return response.data;
