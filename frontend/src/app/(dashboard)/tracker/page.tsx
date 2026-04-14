@@ -71,7 +71,7 @@ export default function TrackerPage() {
   // Sort quarterly goals by parent yearly goal's sort_order, then by their own sort_order
   const goals = useMemo(() => {
     const yearlyGoals = allGoals.filter((g) => g.goal_type === "yearly");
-    const quarterlyGoals = allGoals.filter((g) => g.goal_type === "quarterly");
+    const quarterlyGoals = allGoals.filter((g) => g.goal_type === "quarterly" && g.status !== "completed");
 
     return quarterlyGoals.sort((a, b) => {
       const parentA = yearlyGoals.find((y) => y.id === a.parent_id);

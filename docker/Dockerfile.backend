@@ -10,10 +10,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies into a local prefix
+# Create virtualenv and install dependencies
 COPY backend/requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir --prefix=/opt/venv -r requirements.txt
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 FROM python:3.11-slim
 
