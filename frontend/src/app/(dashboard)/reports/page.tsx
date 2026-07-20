@@ -7,7 +7,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { reportApi } from "@/lib/api";
 import { useTranslation } from "@/i18n";
 import { VisionAlignmentReport, GoalProgressReport, WeeklyReport } from "@/types";
-import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration } from "@/lib/utils";
+import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration, parseUtcDateString } from "@/lib/utils";
 import { BarChart3, PieChart, TrendingUp, Calendar } from "lucide-react";
 
 export default function ReportsPage() {
@@ -25,6 +25,8 @@ export default function ReportsPage() {
       setIsLoading(true);
       try {
         const [vision, goal, weekly] = await Promise.all([
+          // Vision Alignment shows the all-time total per vision (not scoped to
+          // the selected quarter). Only Goal Progress below uses year/quarter.
           reportApi.getVisionAlignment(),
           reportApi.getGoalProgress(selectedYear, selectedQuarter || undefined),
           reportApi.getWeekly(),
@@ -192,7 +194,7 @@ export default function ReportsPage() {
           {weeklyReport ? (
             <div className="space-y-3">
               {weeklyReport.daily_breakdown.map((day) => {
-                const dayName = new Date(day.date).toLocaleDateString(locale, {
+                const dayName = parseUtcDateString(day.date + "T00:00:00").toLocaleDateString(locale, {
                   weekday: "short",
                   month: "numeric",
                   day: "numeric",
