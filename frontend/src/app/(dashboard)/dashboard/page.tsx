@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { Select } from "@/components/ui/Select";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useAuthStore } from "@/store/auth";
 import { useVisions } from "@/hooks/useVisions";
@@ -21,6 +22,8 @@ export default function DashboardPage() {
   const { currentSession } = useTimelogs();
   const { t, locale } = useTranslation();
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  // 默认展示当前季度，可手动切换查看其它季度的目标
+  const [selectedQuarter, setSelectedQuarter] = useState<number>(getCurrentQuarter());
 
   useEffect(() => {
     const fetchWeeklyReport = async () => {
@@ -38,7 +41,7 @@ export default function DashboardPage() {
 
   // 季度目标需要按父目标的 sort_order 排序，然后再按自身的 sort_order 排序
   const quarterlyGoals = goals
-    .filter((g) => g.goal_type === "quarterly" && g.quarter === getCurrentQuarter())
+    .filter((g) => g.goal_type === "quarterly" && g.quarter === selectedQuarter)
     .sort((a, b) => {
       // 找到各自的父年度目标
       const parentA = yearlyGoals.find(y => y.id === a.parent_id);
@@ -154,9 +157,24 @@ export default function DashboardPage() {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">{t('dashboard.thisQuarterGoals')}</h2>
-            <Link href="/goals" className="text-sm text-primary-600 hover:text-primary-700">
-              {t('common.viewAll')}
-            </Link>
+            <div className="flex items-center gap-3">
+              <div className="w-20">
+                <Select
+                  id="dashboard-quarter"
+                  value={selectedQuarter.toString()}
+                  onChange={(e) => setSelectedQuarter(parseInt(e.target.value))}
+                  options={[
+                    { value: "1", label: "Q1" },
+                    { value: "2", label: "Q2" },
+                    { value: "3", label: "Q3" },
+                    { value: "4", label: "Q4" },
+                  ]}
+                />
+              </div>
+              <Link href="/goals" className="text-sm text-primary-600 hover:text-primary-700">
+                {t('common.viewAll')}
+              </Link>
+            </div>
           </div>
           {quarterlyGoals.length === 0 ? (
             <p className="text-gray-500 text-center py-8">

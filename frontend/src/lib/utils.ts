@@ -1,16 +1,34 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+// 北京时间偏移（毫秒）
+const BJ_OFFSET_MS = 8 * 60 * 60 * 1000;
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * 将 UTC 毫秒数转换为"北京时间 Date 对象"。
+ * 返回的 Date 在任何浏览器时区下，调用 getFullYear/getMonth/getDate/getHours
+ * 都会返回北京时间对应的值。
+ */
+export function utcToBeijingDate(utcMs: number): Date {
+  const browserOffsetMs = new Date().getTimezoneOffset() * 60 * 1000;
+  return new Date(utcMs + BJ_OFFSET_MS + browserOffsetMs);
+}
+
+/** 获取当前北京时间对应的 Date 对象 */
+export function getBeijingNow(): Date {
+  return utcToBeijingDate(Date.now());
+}
+
 export function getCurrentYear(): number {
-  return new Date().getFullYear();
+  return getBeijingNow().getFullYear();
 }
 
 export function getCurrentQuarter(): number {
-  const month = new Date().getMonth();
+  const month = getBeijingNow().getMonth();
   return Math.floor(month / 3) + 1;
 }
 
@@ -81,7 +99,7 @@ export function getStatusColor(status: string): string {
 }
 
 export function getWeekDates(date: Date | undefined): Date[] {
-  if (!date) date = new Date();
+  if (!date) date = getBeijingNow();
   const dates: Date[] = [];
   const day = date.getDay();
   const monday = new Date(date);
@@ -110,7 +128,7 @@ export function formatWeekRange(dates: Date[] | undefined, locale: string = 'en-
 
 export function formatDayHeader(date: Date | undefined, locale: string = 'en-US'): string {
   if (!date) return '';
-  const today = new Date();
+  const today = getBeijingNow();
   const isToday = isSameDay(date, today);
 
   const weekday = date.toLocaleDateString(locale, { weekday: 'short' });
@@ -147,10 +165,12 @@ export function formatTimeOnly(dateString: string | undefined, locale: string = 
 }
 
 export function parseUtcDateString(dateString: string | undefined): Date {
-  if (!dateString) return new Date();
+  if (!dateString) return getBeijingNow();
   // Backend returns naive UTC datetime, add Z suffix so JS interprets as UTC
   const withZ = dateString.endsWith('Z') ? dateString : dateString + 'Z';
-  return new Date(withZ);
+  const utcMs = new Date(withZ).getTime();
+  // 转为北京时间：让 getFullYear/getMonth/getDate/getHours 返回北京时间
+  return utcToBeijingDate(utcMs);
 }
 
 export function formatHoursDecimal(minutes: number | undefined): string {

@@ -10,7 +10,7 @@ import { useVisions } from "@/hooks/useVisions";
 import { useTranslation } from "@/i18n";
 import { goalApi } from "@/lib/api";
 import { Vision, Goal } from "@/types";
-import { getStatusColor, getStatusLabel } from "@/lib/utils";
+import { getStatusColor, getStatusLabel, getCurrentYear } from "@/lib/utils";
 import { Plus, Edit2, Trash2, Target, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 
 const COLORS = [
@@ -27,7 +27,7 @@ export default function VisionsPage() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    target_year: new Date().getFullYear() + 5,
+    target_year: getCurrentYear() + 5,
     color: COLORS[0],
   });
 
@@ -93,7 +93,7 @@ export default function VisionsPage() {
     setFormData({
       title: "",
       description: "",
-      target_year: new Date().getFullYear() + 5,
+      target_year: getCurrentYear() + 5,
       color: COLORS[0],
     });
     setIsModalOpen(true);
@@ -104,7 +104,7 @@ export default function VisionsPage() {
     setFormData({
       title: vision.title,
       description: vision.description || "",
-      target_year: vision.target_year || new Date().getFullYear() + 5,
+      target_year: vision.target_year || getCurrentYear() + 5,
       color: vision.color || COLORS[0],
     });
     setIsModalOpen(true);
