@@ -31,9 +31,12 @@ services:
       - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/timetracker.db}
       - SECRET_KEY=${SECRET_KEY:-please-change-this-secret-key}
       - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
-      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:-30}
       - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost","http://localhost:80"]}
+      # hermes 服务访问：带 X-API-Key 头即以 HERMES_USER_EMAIL 身份调用，免登录
+      - HERMES_API_KEY=${HERMES_API_KEY:-}
+      - HERMES_USER_EMAIL=${HERMES_USER_EMAIL:-shaohuizy@gmail.com}
     volumes:
       - backend_data:/app/data
     healthcheck:

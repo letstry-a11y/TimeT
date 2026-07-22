@@ -2,10 +2,10 @@ import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import String, Text, DateTime, ForeignKey, Numeric, Enum as SQLEnum
+from sqlalchemy import String, Text, DateTime, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
-from app.db.types import GUID
+from app.db.types import GUID, TolerantEnum
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -42,12 +42,12 @@ class TimeLog(Base):
     )
 
     log_type: Mapped[TimeLogType] = mapped_column(
-        SQLEnum(TimeLogType, native_enum=False), nullable=False, default=TimeLogType.CLOCK_IN
+        TolerantEnum(TimeLogType), nullable=False, default=TimeLogType.CLOCK_IN
     )
 
     # Status for planned tasks
     status: Mapped[Optional[TimeLogStatus]] = mapped_column(
-        SQLEnum(TimeLogStatus, native_enum=False), nullable=True, default=None
+        TolerantEnum(TimeLogStatus), nullable=True, default=None
     )
 
     # Time tracking

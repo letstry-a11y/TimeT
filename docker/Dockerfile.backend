@@ -46,5 +46,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Production command: use uvicorn with multiple workers
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Production command: SQLite 单文件不支持多进程并发写，使用单 worker（async 已足够支撑并发）
+# 若后续迁移到 PostgreSQL，可再调大 --workers
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
