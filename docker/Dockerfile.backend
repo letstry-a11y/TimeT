@@ -20,8 +20,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Minimal runtime deps (curl used by healthcheck)
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Minimal runtime deps (curl for healthcheck, gosu for privilege drop in entrypoint)
+RUN apt-get update && apt-get install -y curl gosu && rm -rf /var/lib/apt/lists/*
 
 # Copy virtualenv from builder
 COPY --from=builder /opt/venv /opt/venv
@@ -37,7 +37,11 @@ RUN mkdir -p /app/data && chmod 755 /app/data
 
 # Create non-root user and set ownership
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+
+# Entrypoint 以 root 运行，先修数据目录属主再降权到 appuser（见脚本注释）。
+# 因此这里不设 USER；实际服务进程仍以 appuser 身份运行。
+COPY docker/backend-entrypoint.sh /usr/local/bin/backend-entrypoint.sh
+RUN chmod +x /usr/local/bin/backend-entrypoint.sh
 
 # Expose port
 EXPOSE 8000
@@ -45,6 +49,8 @@ EXPOSE 8000
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/backend-entrypoint.sh"]
 
 # Production command: SQLite 单文件不支持多进程并发写，使用单 worker（async 已足够支撑并发）
 # 若后续迁移到 PostgreSQL，可再调大 --workers
