@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,20 @@ from app.models.user import User
 from app.models.time_log import TimeLogType
 
 router = APIRouter()
+
+
+async def response_with_period_warning(db, timelog):
+    from app.models.goal import Goal
+    from sqlalchemy import select
+    goal = (await db.execute(select(Goal).where(Goal.id == timelog.goal_id))).scalar_one()
+    result = TimeLogResponse.model_validate(timelog)
+    start = timelog.start_time + timedelta(hours=8)
+    end = (timelog.end_time - timedelta(microseconds=1) + timedelta(hours=8)) if timelog.end_time else start
+    expected = (goal.year, goal.quarter)
+    if any((dt.year, (dt.month - 1) // 3 + 1) != expected for dt in (start, end)):
+        result.warnings.append("记录日期与目标季度不一致，请检查归属 / Record dates differ from the goal quarter")
+    return result
+
 
 
 @router.get("", response_model=List[TimeLogResponse])
@@ -102,7 +116,7 @@ async def start_clock_in(
         timelog_in.note,
         timelog_in.tags,
     )
-    return timelog
+    return await response_with_period_warning(db, timelog)
 
 
 @router.patch("/{timelog_id}/stop", response_model=TimeLogResponse)
@@ -131,7 +145,7 @@ async def stop_clock_in(
     # Update goal accumulated hours
     await update_goal_accumulated_hours(db, timelog.goal_id)
 
-    return timelog
+    return await response_with_period_warning(db, timelog)
 
 
 @router.post("", response_model=TimeLogResponse, status_code=status.HTTP_201_CREATED)
@@ -152,7 +166,7 @@ async def create_manual_entry(
     # Update goal accumulated hours
     await update_goal_accumulated_hours(db, timelog.goal_id)
 
-    return timelog
+    return await response_with_period_warning(db, timelog)
 
 
 @router.post("/planned", response_model=TimeLogResponse, status_code=status.HTTP_201_CREATED)
@@ -171,7 +185,7 @@ async def create_planned_entry(
 
     timelog = await timelog_crud.create_planned(db, current_user.id, timelog_in)
 
-    return timelog
+    return await response_with_period_warning(db, timelog)
 
 
 @router.patch("/{timelog_id}/status", response_model=TimeLogResponse)
@@ -256,7 +270,7 @@ async def update_timelog(
     if timelog_in.goal_id and timelog_in.goal_id != old_goal_id:
         await update_goal_accumulated_hours(db, old_goal_id)
 
-    return timelog
+    return await response_with_period_warning(db, timelog)
 
 
 @router.delete("/{timelog_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -10,7 +10,7 @@ import { useGoals } from "@/hooks/useGoals";
 import { useTimelogs } from "@/hooks/useTimelogs";
 import { reportApi } from "@/lib/api";
 import { useTranslation } from "@/i18n";
-import { getCurrentYear, getCurrentQuarter, formatDuration, getStatusLabel, getStatusColor, parseUtcDateString } from "@/lib/utils";
+import { getCurrentYear, getCurrentQuarter, formatDuration, getStatusLabel, getStatusColor, formatTimeOnly } from "@/lib/utils";
 import { Target, Flag, Clock, TrendingUp, Play } from "lucide-react";
 import Link from "next/link";
 import { WeeklyReport } from "@/types";
@@ -138,7 +138,7 @@ export default function DashboardPage() {
               <div>
                 <p className="font-medium text-green-800">{t('dashboard.inProgress')}</p>
                 <p className="text-sm text-green-600">
-                  {t('dashboard.startedAt', { time: parseUtcDateString(currentSession.start_time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false }) })}
+                  {t('dashboard.startedAt', { time: formatTimeOnly(currentSession.start_time, locale) })}
                 </p>
               </div>
             </div>

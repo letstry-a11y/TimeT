@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/auth";
 import {
   User,
@@ -15,6 +16,7 @@ import {
   WeeklyReport,
   VisionAlignmentReport,
   GoalProgressReport,
+  PeriodReport,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -40,7 +42,12 @@ api.interceptors.request.use(
 
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (Array.isArray(response.data?.warnings)) {
+      response.data.warnings.forEach((warning: string) => toast(warning, { duration: 8000, icon: "⚠️" }));
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 
@@ -245,6 +252,11 @@ export const timelogApi = {
 
 // Report API
 export const reportApi = {
+  async getPeriod(year: number, quarter?: number): Promise<PeriodReport> {
+    const params = new URLSearchParams({ year: String(year) });
+    if (quarter) params.set("quarter", String(quarter));
+    return (await api.get(`/api/v1/reports/period?${params.toString()}`)).data;
+  },
   async getWeekly(weekStart?: string): Promise<WeeklyReport> {
     const params = new URLSearchParams();
     if (weekStart) params.append("week_start", weekStart);

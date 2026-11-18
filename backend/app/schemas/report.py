@@ -48,3 +48,30 @@ class WeeklyReport(BaseModel):
     total_hours: float
     daily_breakdown: List[DailyStats]
     top_goals: List[dict]
+
+
+class PeriodGoalItem(BaseModel):
+    goal_id: str
+    title: str
+    goal_hours: float
+    calendar_hours: float
+    target_hours: Optional[float]
+    raw_percentage: Optional[float]
+    active_days_this_week: int
+    last_record: Optional[str]
+    remaining_hours_per_week: Optional[float]
+    acceptance: Optional[str]
+
+
+class PeriodReport(BaseModel):
+    start_date: date
+    end_date: date
+    as_of: date
+    week_start: date
+    timezone: str = "Asia/Shanghai"
+    calendar_hours: float
+    goal_hours: float
+    target_hours: float
+    elapsed_percentage: float
+    cross_period_log_count: int
+    goals: List[PeriodGoalItem]

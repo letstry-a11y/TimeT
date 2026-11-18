@@ -62,7 +62,7 @@ async def create_goal(
     """
     # Validate hierarchy rules
     await validate_goal_hierarchy(
-        db, current_user.id, goal_in.goal_type, goal_in.vision_id, goal_in.parent_id
+        db, current_user.id, goal_in.goal_type, goal_in.vision_id, goal_in.parent_id, goal_in.year
     )
 
     goal = await goal_crud.create_goal(db, current_user.id, goal_in)
@@ -129,15 +129,21 @@ async def update_goal(
             detail="Goal not found",
         )
 
-    # If changing goal type or parent, validate hierarchy
-    new_goal_type = goal_in.goal_type if goal_in.goal_type else goal.goal_type
-    new_vision_id = goal_in.vision_id if goal_in.vision_id is not None else goal.vision_id
-    new_parent_id = goal_in.parent_id if goal_in.parent_id is not None else goal.parent_id
-
-    if goal_in.goal_type or goal_in.vision_id is not None or goal_in.parent_id is not None:
-        await validate_goal_hierarchy(
-            db, current_user.id, new_goal_type, new_vision_id, new_parent_id
-        )
+    # Validate the merged state even for partial updates and explicit nulls.
+    from pydantic import ValidationError
+    from sqlalchemy import select
+    from app.models.goal import Goal
+    merged = {field: getattr(goal, field) for field in GoalCreate.model_fields}
+    merged.update(goal_in.model_dump(exclude_unset=True))
+    try:
+        candidate = GoalCreate(**merged)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    await validate_goal_hierarchy(db, current_user.id, candidate.goal_type,
+                                  candidate.vision_id, candidate.parent_id, candidate.year)
+    children = (await db.execute(select(Goal).where(Goal.parent_id == goal.id))).scalars().all()
+    if children and (candidate.goal_type != GoalType.YEARLY or any(c.year != candidate.year for c in children)):
+        raise HTTPException(status_code=400, detail="Parent type/year must remain consistent with its children")
 
     goal = await goal_crud.update_goal(db, goal, goal_in)
     return goal

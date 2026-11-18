@@ -6,7 +6,7 @@ import { Select } from "@/components/ui/Select";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { reportApi } from "@/lib/api";
 import { useTranslation } from "@/i18n";
-import { VisionAlignmentReport, GoalProgressReport, WeeklyReport } from "@/types";
+import { VisionAlignmentReport, GoalProgressReport, WeeklyReport, PeriodReport } from "@/types";
 import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration, parseUtcDateString } from "@/lib/utils";
 import { BarChart3, PieChart, TrendingUp, Calendar } from "lucide-react";
 
@@ -18,30 +18,38 @@ export default function ReportsPage() {
   const [visionReport, setVisionReport] = useState<VisionAlignmentReport | null>(null);
   const [goalReport, setGoalReport] = useState<GoalProgressReport | null>(null);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const [periodReport, setPeriodReport] = useState<PeriodReport | null>(null);
+  const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchReports = async () => {
       setIsLoading(true);
+      setError(false);
       try {
-        const [vision, goal, weekly] = await Promise.all([
+        const [vision, goal, weekly, period] = await Promise.all([
           // Vision Alignment shows the all-time total per vision (not scoped to
           // the selected quarter). Only Goal Progress below uses year/quarter.
           reportApi.getVisionAlignment(),
           reportApi.getGoalProgress(selectedYear, selectedQuarter || undefined),
           reportApi.getWeekly(),
+          reportApi.getPeriod(selectedYear, selectedQuarter || undefined),
         ]);
+        if (cancelled) return;
+        setPeriodReport(period);
         setVisionReport(vision);
         setGoalReport(goal);
         setWeeklyReport(weekly);
       } catch (err) {
-        console.error("Failed to fetch reports");
+        if (!cancelled) setError(true);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchReports();
+    return () => { cancelled = true; };
   }, [selectedYear, selectedQuarter]);
 
   if (isLoading) {
@@ -51,6 +59,8 @@ export default function ReportsPage() {
       </div>
     );
   }
+
+  if (error) return <Card><p role="alert">{locale === "zh-CN" ? "报表加载失败，请刷新重试。" : "Could not load reports. Please reload."}</p></Card>;
 
   return (
     <div className="space-y-6">
@@ -87,6 +97,20 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      {periodReport && (
+        <Card>
+          <h2 className="text-lg font-semibold">{locale === "zh-CN" ? "所选期间 · 北京时间" : "Selected period · Beijing time"}</h2>
+          <p className="text-sm text-gray-500 mt-1">{periodReport.start_date} — {periodReport.end_date} · {locale === "zh-CN" ? "统计截至" : "As of"} {periodReport.as_of}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            <div><p className="text-2xl font-bold">{periodReport.calendar_hours.toFixed(1)}h</p><p className="text-sm text-gray-500">{locale === "zh-CN" ? "实际发生日期投入" : "Hours by activity date"}</p></div>
+            <div><p className="text-2xl font-bold">{periodReport.goal_hours.toFixed(1)} / {periodReport.target_hours.toFixed(1)}h</p><p className="text-sm text-gray-500">{locale === "zh-CN" ? "所选季度目标累计 / 预算" : "Assigned quarterly goals / budget"}</p></div>
+            <div><p className="text-2xl font-bold">{periodReport.elapsed_percentage}%</p><p className="text-sm text-gray-500">{locale === "zh-CN" ? "期间时间已过" : "Period elapsed"}</p></div>
+          </div>
+          <p className="text-sm text-gray-500 mt-4">{locale === "zh-CN" ? "实际投入按记录开始日期统计；目标累计包含归属这些目标的跨期记录。下方历史累计和当前周数据独立展示。" : "Activity totals use start dates; goal totals include cross-period entries. All-time and current-week figures below are separate."}</p>
+          {periodReport.cross_period_log_count > 0 && <p className="text-sm text-amber-700 mt-2">{locale === "zh-CN" ? `有 ${periodReport.cross_period_log_count} 条记录的发生日期与目标季度不一致，请核对归属。` : `${periodReport.cross_period_log_count} entries belong to a different quarter. Review their assignment.`}</p>}
+        </Card>
+      )}
+
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -98,7 +122,7 @@ export default function ReportsPage() {
               <p className="text-2xl font-bold">
                 {visionReport ? `${visionReport.total_hours.toFixed(1)}h` : "-"}
               </p>
-              <p className="text-sm text-gray-500">{t('reports.totalTime')}</p>
+              <p className="text-sm text-gray-500">{locale === 'zh-CN' ? '历史累计投入（全部日期）' : 'All-time recorded hours'}</p>
             </div>
           </div>
         </Card>
@@ -139,7 +163,7 @@ export default function ReportsPage() {
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <PieChart className="h-5 w-5 text-primary-600" />
-            <h2 className="text-lg font-semibold">{t('reports.visionAlignment')}</h2>
+            <h2 className="text-lg font-semibold">{locale === 'zh-CN' ? '愿景分布（历史累计）' : 'Vision alignment (all time)'}</h2>
           </div>
 
           {visionReport && visionReport.data.length > 0 ? (
@@ -198,6 +222,7 @@ export default function ReportsPage() {
                   weekday: "short",
                   month: "numeric",
                   day: "numeric",
+                  timeZone: "UTC",
                 });
                 const maxHours = 10;
                 const percentage = Math.min(100, (day.hours / maxHours) * 100);
@@ -237,6 +262,20 @@ export default function ReportsPage() {
           )}
         </Card>
       </div>
+
+      {periodReport && (
+        <Card>
+          <h2 className="text-lg font-semibold mb-2">{locale === "zh-CN" ? "执行频率与剩余安排" : "Consistency and remaining effort"}</h2>
+          <p className="text-sm text-gray-500 mb-3">{locale === "zh-CN" ? "本周从" : "Week from"} {periodReport.week_start} · {locale === "zh-CN" ? "频率为有记录的天数；剩余每周投入从统计次日起计算。" : "Frequency counts days with records; remaining effort starts the day after the report date."}</p>
+          <div className="overflow-x-auto"><table className="w-full text-sm">
+            <thead><tr className="border-b text-left"><th className="p-2">{locale === "zh-CN" ? "目标 / 验收要求" : "Goal / acceptance"}</th><th className="p-2">{locale === "zh-CN" ? "原始达成率" : "Actual progress"}</th><th className="p-2">{locale === "zh-CN" ? "本周天数" : "Days this week"}</th><th className="p-2">{locale === "zh-CN" ? "最近记录" : "Latest record"}</th><th className="p-2">{locale === "zh-CN" ? "剩余 h/周" : "Remaining h/week"}</th></tr></thead>
+            <tbody>{periodReport.goals.map(goal => <tr key={goal.goal_id} className="border-b align-top">
+              <td className="p-2"><p className="font-medium">{goal.title}</p>{goal.acceptance && <details className="max-w-lg mt-1 text-gray-500"><summary className="cursor-pointer">{locale === "zh-CN" ? "查看计划与验收要求" : "Plan and acceptance criteria"}</summary><p className="mt-2 whitespace-pre-wrap">{goal.acceptance}</p></details>}</td>
+              <td className="p-2">{goal.raw_percentage == null ? "—" : `${goal.raw_percentage}%`}</td><td className="p-2">{goal.active_days_this_week}</td><td className="p-2 whitespace-nowrap">{goal.last_record || "—"}</td><td className="p-2">{goal.remaining_hours_per_week == null ? "—" : goal.remaining_hours_per_week.toFixed(1)}</td>
+            </tr>)}</tbody>
+          </table></div>
+        </Card>
+      )}
 
       {/* Goal Progress */}
       <Card>

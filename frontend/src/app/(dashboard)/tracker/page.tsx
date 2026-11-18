@@ -66,12 +66,12 @@ function beijingInputToUtcIso(beijingLocalString: string): string {
 // Helper to convert ISO string to datetime-local format (显示北京时间)
 const toDateTimeLocal = (isoString: string) => {
   const date = parseUtcDateString(isoString);
-  // parseUtcDateString 返回 Beijing Date，getXxx() 返回北京时间
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
+  // parseUtcDateString 返回 Beijing Date（UTC getters 即北京时间）
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
@@ -181,8 +181,7 @@ export default function TrackerPage() {
     const groups: DayGroup[] = [];
     const dateMap = new Map<string, DayGroup>();
 
-    // Sort logs by start_time descending
-    // 使用 parseUtcDateString 确保正确解析后端返回的 UTC 时间
+    // Sort logs by start_time descending (parseUtcDateString returns Beijing Date)
     const sortedLogs = [...timelogs].sort(
       (a, b) => parseUtcDateString(b.start_time).getTime() - parseUtcDateString(a.start_time).getTime()
     );
@@ -195,18 +194,16 @@ export default function TrackerPage() {
       if (viewMode === "day") {
         if (!isSameDay(logDate, currentDate)) continue;
       } else {
-        // weekDates is an array of Date objects [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
-        // Set weekStart to start of day and weekEnd to end of day for accurate comparison
-        const weekStart = new Date(weekDates[0]);
-        weekStart.setHours(0, 0, 0, 0);
-        const weekEnd = new Date(weekDates[6]);
-        weekEnd.setHours(23, 59, 59, 999);
-        if (logDate < weekStart || logDate > weekEnd) continue;
+        const weekStart = new Date(weekDates[0].getTime());
+        weekStart.setUTCHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekDates[6].getTime());
+        weekEnd.setUTCHours(23, 59, 59, 999);
+        if (logDate.getTime() < weekStart.getTime() || logDate.getTime() > weekEnd.getTime()) continue;
       }
 
       if (!dateMap.has(dateStr)) {
         const dayGroup: DayGroup = {
-          date: new Date(logDate.getFullYear(), logDate.getMonth(), logDate.getDate()),
+          date: new Date(logDate.getTime()),
           dateStr,
           logs: [],
           totalMinutes: 0,
@@ -459,11 +456,7 @@ export default function TrackerPage() {
                 </p>
                 <p className="text-sm text-green-600">
                   {t("dashboard.startedAt", {
-                    time: parseUtcDateString(currentSession.start_time).toLocaleTimeString(locale, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: false,
-                    }),
+                    time: formatTimeOnly(currentSession.start_time, locale),
                   })}
                 </p>
               </div>

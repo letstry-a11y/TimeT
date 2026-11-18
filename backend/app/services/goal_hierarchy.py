@@ -13,6 +13,7 @@ async def validate_goal_hierarchy(
     goal_type: GoalType,
     vision_id: Optional[uuid.UUID] = None,
     parent_id: Optional[uuid.UUID] = None,
+    year: Optional[int] = None,
 ) -> None:
     """
     Validate goal hierarchy rules:
@@ -54,6 +55,9 @@ async def validate_goal_hierarchy(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Quarterly goals can only be children of yearly goals",
             )
+
+        if year is not None and parent.year != year:
+            raise HTTPException(status_code=400, detail="Quarterly goal year must match its parent year")
 
 
 async def build_goal_tree(

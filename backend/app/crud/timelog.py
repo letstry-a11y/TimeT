@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, date
 from typing import List, Optional
+from fastapi import HTTPException
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.time_log import TimeLog, TimeLogType, TimeLogStatus
@@ -188,12 +189,21 @@ async def update_timelog(
     if "end_time" in update_data:
         update_data["end_time"] = to_naive_utc(update_data["end_time"])
 
-    # Recalculate duration if times changed
-    if "start_time" in update_data or "end_time" in update_data:
-        start = update_data.get("start_time", timelog.start_time)
-        end = update_data.get("end_time", timelog.end_time)
-        if start and end:
-            update_data["duration_minutes"] = (end - start).total_seconds() / 60
+    if "goal_id" in update_data and update_data["goal_id"] is None:
+        raise HTTPException(status_code=422, detail="Goal cannot be null")
+
+    # Validate the merged record, including one-sided time updates.
+    start = update_data.get("start_time", timelog.start_time)
+    end = update_data.get("end_time", timelog.end_time)
+    if not start or not end or end <= start:
+        raise HTTPException(status_code=422, detail="End time must be after start time")
+    minutes = (end - start).total_seconds() / 60
+    if "duration_minutes" in update_data:
+        supplied = update_data["duration_minutes"]
+        if supplied is None or abs(float(supplied) - minutes) > 0.02:
+            raise HTTPException(status_code=422, detail="Duration must match start/end times")
+    if "start_time" in update_data or "end_time" in update_data or "duration_minutes" in update_data:
+        update_data["duration_minutes"] = minutes
 
     for field, value in update_data.items():
         setattr(timelog, field, value)

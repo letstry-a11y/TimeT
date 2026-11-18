@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Play, Square, Clock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useTranslation } from "@/i18n";
-import { cn, parseUtcDateString } from "@/lib/utils";
+import { cn, parseUtcMs } from "@/lib/utils";
 
 interface TimerProps {
   isRunning: boolean;
@@ -31,7 +31,7 @@ export function useElapsedTime(isRunning: boolean, startTime?: string): number {
 
     if (isRunning && startTime) {
       const updateElapsed = () => {
-        const start = parseUtcDateString(startTime).getTime();
+        const start = parseUtcMs(startTime);
         const now = Date.now();
         setElapsed(Math.floor((now - start) / 1000));
       };

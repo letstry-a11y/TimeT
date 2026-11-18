@@ -198,3 +198,28 @@ export interface WeeklyReport {
   daily_breakdown: DailyStats[];
   top_goals: { goal_id: string; title: string; hours: number }[];
 }
+
+export interface PeriodReport {
+  start_date: string;
+  end_date: string;
+  as_of: string;
+  week_start: string;
+  timezone: string;
+  calendar_hours: number;
+  goal_hours: number;
+  target_hours: number;
+  elapsed_percentage: number;
+  cross_period_log_count: number;
+  goals: Array<{
+    goal_id: string;
+    title: string;
+    goal_hours: number;
+    calendar_hours: number;
+    target_hours: number | null;
+    raw_percentage: number | null;
+    active_days_this_week: number;
+    last_record: string | null;
+    remaining_hours_per_week: number | null;
+    acceptance: string | null;
+  }>;
+}

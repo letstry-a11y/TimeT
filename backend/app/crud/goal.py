@@ -101,6 +101,8 @@ async def update_goal(
     update_data = goal_in.model_dump(exclude_unset=True, mode="python")
     for field, value in update_data.items():
         setattr(goal, field, value)
+    if "target_hours" in update_data:
+        goal.progress_percentage = min(100.0, float(goal.accumulated_hours) / float(goal.target_hours) * 100) if goal.target_hours else 0
     await db.commit()
     await db.refresh(goal)
     return goal
