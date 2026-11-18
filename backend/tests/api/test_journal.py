@@ -1,9 +1,15 @@
+import asyncio
 from datetime import date, datetime
 from uuid import uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.core.security import create_access_token
+from app.db.base import Base
+from app.db.session import get_db, make_database_engine
+from app.main import app
 from app.models.goal import Goal, GoalStatus, GoalType
 from app.models.time_log import TimeLog, TimeLogStatus, TimeLogType
 from app.models.user import User
@@ -11,6 +17,36 @@ from app.services.journal import period_window
 from app.services.reviews import build_review
 
 API = "/api/v1/journal"
+
+
+async def test_two_browser_requests_cannot_capture_the_same_interval(tmp_path):
+    # Each request gets its own session, as it does under uvicorn. The shared
+    # db_session fixture used by single-request tests cannot exercise this race.
+    engine = make_database_engine("sqlite+aiosqlite:///" + str(tmp_path / "journal.db"))
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with sessions() as db:
+        user = User(email="journal@example.com", username="journal", hashed_password="unused")
+        db.add(user)
+        await db.commit()
+        token = create_access_token(data={"sub": str(user.id)})
+
+    async def request_session():
+        async with sessions() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = request_session
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test",
+                               headers={"Authorization": "Bearer " + token}) as c:
+            body = {"category": "rest", "start_time": "2024-02-01T12:00+08:00", "end_time": "2024-02-01T13:00+08:00"}
+            replies = await asyncio.gather(*(c.put(API + "/activities/" + str(uuid4()), json=body) for _ in range(2)))
+            assert sorted(response.status_code for response in replies) == [200, 409]
+            assert len((await c.get(API + "/day?day=2024-02-01")).json()["entries"]) == 1
+    finally:
+        app.dependency_overrides.pop(get_db)
+        await engine.dispose()
 
 
 @pytest.fixture

@@ -1,38 +1,36 @@
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool, StaticPool
+
 from app.core.config import settings
 
-# SQLite needs special configuration for async
-connect_args = {}
-poolclass = None
-is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
-if is_sqlite:
-    connect_args = {"check_same_thread": False}
-    poolclass = StaticPool
+def make_database_engine(url: str, *, echo: bool = False):
+    database = make_url(url)
+    if database.get_backend_name() != "sqlite":
+        return create_async_engine(url, echo=echo)
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    future=True,
-    connect_args=connect_args,
-    poolclass=poolclass,
-)
+    memory = database.database in (None, "", ":memory:", "file::memory:") or database.query.get("mode") == "memory"
+    # File-backed requests need independent transactions. Reusing one physical
+    # connection lets concurrent sessions see and commit one another's writes.
+    engine = create_async_engine(url, echo=echo, poolclass=StaticPool if memory else NullPool,
+                                 connect_args={"check_same_thread": False, "timeout": 5})
 
-if is_sqlite:
-    # 开启 WAL 模式并设置忙等待，避免多并发下 "database is locked" 导致的偶发访问失败
     @event.listens_for(engine.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        # WAL: 读写不再互相阻塞
-        cursor.execute("PRAGMA journal_mode=WAL")
-        # 遇到锁时最多等待 5 秒再报错，而不是立即失败
-        cursor.execute("PRAGMA busy_timeout=5000")
-        # 平衡持久性与写入性能
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.close()
+    def set_sqlite_pragmas(connection, _record):
+        cursor = connection.cursor()
+        try:
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+        finally:
+            cursor.close()
 
+    return engine
+
+
+engine = make_database_engine(settings.DATABASE_URL, echo=settings.DEBUG)
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
