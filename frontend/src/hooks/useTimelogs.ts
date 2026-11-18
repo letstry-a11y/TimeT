@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { timelogApi } from "@/lib/api";
 import { TimeLog, TimeLogStart, TimeLogManual, TimeLogPlanned, TimeLogStatus } from "@/types";
 import { getTranslation, useLanguageStore } from "@/i18n";
@@ -20,20 +20,24 @@ export function useTimelogs(filters?: TimelogFilters) {
   const [currentSession, setCurrentSession] = useState<TimeLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const request = useRef(0);
+  const { goal_id, start_date, end_date, log_type } = filters || {};
 
   const fetchTimelogs = useCallback(async () => {
+    const id = ++request.current;
     setIsLoading(true);
     setError(null);
     try {
-      const data = await timelogApi.list(filters);
-      setTimelogs(data);
+      const data = await timelogApi.list({ goal_id, start_date, end_date, log_type });
+      if (id === request.current) setTimelogs(data);
     } catch (err: any) {
+      if (id !== request.current) return;
       setError(err.message);
       toast.error(t('tracker.loadFailed'));
     } finally {
-      setIsLoading(false);
+      if (id === request.current) setIsLoading(false);
     }
-  }, [filters?.goal_id, filters?.start_date, filters?.end_date, filters?.log_type]);
+  }, [goal_id, start_date, end_date, log_type]);
 
   const fetchCurrentSession = useCallback(async () => {
     try {

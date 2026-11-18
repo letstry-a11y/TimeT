@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/Card";
@@ -64,6 +65,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      <Link className="text-link" href="/reviews">{locale === "zh-CN" ? "打开周期复盘与历史档案 →" : "Open periodic reviews and archive →"}</Link>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

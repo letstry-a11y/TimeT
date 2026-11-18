@@ -145,6 +145,7 @@ export const visionApi = {
 
 // Goal API
 interface GoalFilters {
+  include_archived?: boolean;
   vision_id?: string;
   goal_type?: string;
   year?: number;
@@ -152,17 +153,28 @@ interface GoalFilters {
   parent_id?: string;
 }
 
+async function listPages<T>(path: string, params: URLSearchParams): Promise<T[]> {
+  const rows: T[] = [];
+  params.set("limit", "100");
+  for (let skip = 0; ; skip += 100) {
+    params.set("skip", String(skip));
+    const page = (await api.get<T[]>(path, { params })).data;
+    rows.push(...page);
+    if (page.length < 100) return rows;
+  }
+}
+
 export const goalApi = {
   async list(filters?: GoalFilters): Promise<Goal[]> {
     const params = new URLSearchParams();
+    if (filters?.include_archived) params.set("include_archived", "true");
     if (filters?.vision_id) params.append("vision_id", filters.vision_id);
     if (filters?.goal_type) params.append("goal_type", filters.goal_type);
     if (filters?.year) params.append("year", String(filters.year));
     if (filters?.quarter) params.append("quarter", String(filters.quarter));
     if (filters?.parent_id) params.append("parent_id", filters.parent_id);
 
-    const response = await api.get(`/api/v1/goals?${params.toString()}`);
-    return response.data;
+    return listPages<Goal>("/api/v1/goals", params);
   },
 
   async get(id: string): Promise<Goal> {
@@ -201,8 +213,7 @@ export const timelogApi = {
     if (filters?.end_date) params.append("end_date", filters.end_date);
     if (filters?.log_type) params.append("log_type", filters.log_type);
 
-    const response = await api.get(`/api/v1/timelogs?${params.toString()}`);
-    return response.data;
+    return listPages<TimeLog>("/api/v1/timelogs", params);
   },
 
   async get(id: string): Promise<TimeLog> {
@@ -225,8 +236,8 @@ export const timelogApi = {
     return response.data;
   },
 
-  async createManual(data: TimeLogManual): Promise<TimeLog> {
-    const response = await api.post("/api/v1/timelogs", data);
+  async createManual(data: TimeLogManual, checkOverlap = true): Promise<TimeLog> {
+    const response = await api.post("/api/v1/timelogs", data, { params: { check_overlap: checkOverlap } });
     return response.data;
   },
 
@@ -236,12 +247,12 @@ export const timelogApi = {
   },
 
   async updateStatus(id: string, status: TimeLogStatus): Promise<TimeLog> {
-    const response = await api.patch(`/api/v1/timelogs/${id}/status`, { status });
+    const response = await api.patch(`/api/v1/timelogs/${id}/status`, { status }, { params: { check_overlap: true } });
     return response.data;
   },
 
-  async update(id: string, data: Partial<TimeLog>): Promise<TimeLog> {
-    const response = await api.put(`/api/v1/timelogs/${id}`, data);
+  async update(id: string, data: Partial<TimeLog>, checkOverlap = true): Promise<TimeLog> {
+    const response = await api.put(`/api/v1/timelogs/${id}`, data, { params: { check_overlap: checkOverlap } });
     return response.data;
   },
 

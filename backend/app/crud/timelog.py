@@ -71,7 +71,7 @@ async def get_timelogs(
     if log_type is not None:
         query = query.where(TimeLog.log_type == log_type)
 
-    query = query.order_by(TimeLog.start_time.desc())
+    query = query.order_by(TimeLog.start_time.desc(), TimeLog.id)
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     return list(result.scalars().all())

@@ -25,7 +25,7 @@ export function getBeijingNow(): Date {
 /** 从后端 ISO 字符串解析出原始 UTC 毫秒数 */
 export function parseUtcMs(dateString: string | undefined): number {
   if (!dateString) return Date.now();
-  const withZ = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+  const withZ = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(dateString) ? dateString : dateString + 'Z';
   return new Date(withZ).getTime();
 }
 

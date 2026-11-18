@@ -49,9 +49,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-frame">
       <Sidebar />
-      <main className="ml-64 p-8">
+      <main className="app-content">
         {children}
       </main>
     </div>

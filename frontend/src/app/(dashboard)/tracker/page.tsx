@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
+import { today } from "@/lib/journal";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -12,7 +14,6 @@ import { useTimelogs } from "@/hooks/useTimelogs";
 import { useTranslation } from "@/i18n";
 import {
   cn,
-  getCurrentYear,
   getBeijingNow,
   formatDuration,
   formatHoursDecimal,
@@ -51,16 +52,8 @@ interface DayGroup {
   totalMinutes: number;
 }
 
-// 北京时间偏移（毫秒）
-const BJ_OFFSET_MS = 8 * 60 * 60 * 1000;
-
-/** 将用户输入的北京时间字符串转为 UTC ISO 字符串发给后端 */
-function beijingInputToUtcIso(beijingLocalString: string): string {
-  const localDate = new Date(beijingLocalString);
-  const browserOffsetMs = new Date().getTimezoneOffset() * 60 * 1000;
-  // 浏览器把输入按本地时区解析了，需要修正回北京时间对应的 UTC
-  const utcMs = localDate.getTime() - browserOffsetMs - BJ_OFFSET_MS;
-  return new Date(utcMs).toISOString();
+function beijingInputToUtcIso(local: string): string {
+  return new Date(local + "+08:00").toISOString();
 }
 
 // Helper to convert ISO string to datetime-local format (显示北京时间)
@@ -76,8 +69,15 @@ const toDateTimeLocal = (isoString: string) => {
 };
 
 export default function TrackerPage() {
-  // Get all goals for the current year (both yearly and quarterly)
-  const { goals: allGoals } = useGoals({ year: getCurrentYear() });
+  const [viewMode, setViewMode] = useState<ViewMode>("day");
+  const [currentDate, setCurrentDate] = useState(getBeijingNow);
+  const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
+  const firstDay = viewMode === "day" ? currentDate : weekDates[0];
+  const lastDay = viewMode === "day" ? currentDate : weekDates[6];
+  // The existing list API filters on UTC start dates. Request the UTC dates
+  // touching the visible Beijing window, and group them locally below.
+  const utcDay = (d: Date, time: string) => new Date(toDateString(d) + time + "+08:00").toISOString().slice(0, 10);
+  const { goals: allGoals } = useGoals({ include_archived: true });
 
   // All quarterly goals (including completed), sorted by parent yearly goal's
   // sort_order, then by their own sort_order. Used to resolve goal titles for
@@ -102,12 +102,13 @@ export default function TrackerPage() {
     });
   }, [allGoals]);
 
-  // Selectable goals for new sessions/plans/manual entries: hide completed ones
-  // so users don't accidentally pick a finished Q1/Q2 goal.
-  const goals = useMemo(
-    () => allQuarterlyGoals.filter((g) => g.status !== "completed"),
-    [allQuarterlyGoals]
-  );
+  const choicesFor = (local: string) => {
+    const day = local.slice(0, 10) || today();
+    const quarter = Math.ceil(Number(day.slice(5, 7)) / 3);
+    return allQuarterlyGoals.filter(g => !g.is_archived && ["not_started", "in_progress"].includes(g.status)
+      && g.year === Number(day.slice(0, 4)) && g.quarter === quarter);
+  };
+  const goals = choicesFor(today());
 
   const {
     timelogs,
@@ -121,7 +122,7 @@ export default function TrackerPage() {
     updateTimelog,
     deleteTimelog,
     refetch,
-  } = useTimelogs();
+  } = useTimelogs({ start_date: utcDay(firstDay, "T00:00"), end_date: utcDay(lastDay, "T23:59") });
   const { t, locale } = useTranslation();
 
   // Timer elapsed time
@@ -131,9 +132,6 @@ export default function TrackerPage() {
   const [selectedGoalId, setSelectedGoalId] = useState("");
   const [note, setNote] = useState("");
 
-  // State for view mode and date navigation
-  const [viewMode, setViewMode] = useState<ViewMode>("day");
-  const [currentDate, setCurrentDate] = useState(getBeijingNow());
 
   // State for modals
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
@@ -160,21 +158,14 @@ export default function TrackerPage() {
     log_type: string;
   } | null>(null);
 
-  // Initialize goal selection
   useEffect(() => {
-    if (goals.length > 0 && !selectedGoalId) {
-      setSelectedGoalId(goals[0].id);
-    }
-    if (goals.length > 0 && !manualData.goal_id) {
-      setManualData((prev) => ({ ...prev, goal_id: goals[0].id }));
-    }
-    if (goals.length > 0 && !planData.goal_id) {
-      setPlanData((prev) => ({ ...prev, goal_id: goals[0].id }));
-    }
-  }, [goals, selectedGoalId, manualData.goal_id, planData.goal_id]);
-
-  // Get week dates for current view
-  const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
+    const requested = new URLSearchParams(window.location.search).get("goal");
+    if (requested && allQuarterlyGoals.some(g => g.id === requested)) setSelectedGoalId(requested);
+  }, [allQuarterlyGoals]);
+  const manualGoals = choicesFor(manualData.start_time);
+  const planGoals = choicesFor(planData.start_time);
+  const editGoals = choicesFor(editData?.start_time || "");
+  const timerGoal = goals.some(g => g.id === selectedGoalId) ? selectedGoalId : "";
 
   // Group timelogs by day
   const groupedLogs = useMemo(() => {
@@ -235,9 +226,9 @@ export default function TrackerPage() {
   const navigatePrev = () => {
     const newDate = new Date(currentDate);
     if (viewMode === "day") {
-      newDate.setDate(newDate.getDate() - 1);
+      newDate.setUTCDate(newDate.getUTCDate() - 1);
     } else {
-      newDate.setDate(newDate.getDate() - 7);
+      newDate.setUTCDate(newDate.getUTCDate() - 7);
     }
     setCurrentDate(newDate);
   };
@@ -245,9 +236,9 @@ export default function TrackerPage() {
   const navigateNext = () => {
     const newDate = new Date(currentDate);
     if (viewMode === "day") {
-      newDate.setDate(newDate.getDate() + 1);
+      newDate.setUTCDate(newDate.getUTCDate() + 1);
     } else {
-      newDate.setDate(newDate.getDate() + 7);
+      newDate.setUTCDate(newDate.getUTCDate() + 7);
     }
     setCurrentDate(newDate);
   };
@@ -258,8 +249,8 @@ export default function TrackerPage() {
 
   // Timer handlers
   const handleStart = async () => {
-    if (!selectedGoalId) return;
-    await startSession({ goal_id: selectedGoalId, note: note || undefined });
+    if (!timerGoal) return;
+    await startSession({ goal_id: timerGoal, note: note || undefined });
     setNote("");
   };
 
@@ -284,7 +275,7 @@ export default function TrackerPage() {
 
     setIsManualModalOpen(false);
     setManualData({
-      goal_id: goals[0]?.id || "",
+      goal_id: "",
       start_time: "",
       end_time: "",
       note: "",
@@ -305,7 +296,7 @@ export default function TrackerPage() {
 
     setIsPlanModalOpen(false);
     setPlanData({
-      goal_id: goals[0]?.id || "",
+      goal_id: "",
       start_time: "",
       end_time: "",
       note: "",
@@ -463,7 +454,7 @@ export default function TrackerPage() {
             ) : (
               <Select
                 id="goal"
-                value={selectedGoalId}
+                value={timerGoal}
                 onChange={(e) => setSelectedGoalId(e.target.value)}
                 options={[
                   { value: "", label: t("tracker.selectQuarterlyGoal") },
@@ -497,7 +488,7 @@ export default function TrackerPage() {
             <Button
               size="sm"
               onClick={handleStart}
-              disabled={!selectedGoalId || goals.length === 0}
+              disabled={!timerGoal}
               className="w-24 shrink-0"
             >
               <Play className="h-4 w-4 mr-1" />
@@ -518,6 +509,9 @@ export default function TrackerPage() {
         </div>
       </Card>
 
+      <Link className="text-link" href={"/dashboard?day=" + toDateString(currentDate)}>
+        {locale === "zh-CN" ? "查看这一天的完整时间轴与生活记录 →" : "Open this day's full timeline and everyday activities →"}
+      </Link>
       {/* Records Section */}
       <Card>
         {/* Navigation Header */}
@@ -737,11 +731,11 @@ export default function TrackerPage() {
           <Select
             id="manual-goal"
             label={t("tracker.selectGoal")}
-            value={manualData.goal_id}
+            value={manualGoals.some(g => g.id === manualData.goal_id) ? manualData.goal_id : ""}
             onChange={(e) => setManualData((prev) => ({ ...prev, goal_id: e.target.value }))}
             options={[
               { value: "", label: t("tracker.selectQuarterlyGoal") },
-              ...goals.map((g) => ({
+              ...manualGoals.map((g) => ({
                 value: g.id,
                 label: `Q${g.quarter}: ${g.title}`,
               })),
@@ -801,11 +795,11 @@ export default function TrackerPage() {
           <Select
             id="plan-goal"
             label={t("tracker.selectGoal")}
-            value={planData.goal_id}
+            value={planGoals.some(g => g.id === planData.goal_id) ? planData.goal_id : ""}
             onChange={(e) => setPlanData((prev) => ({ ...prev, goal_id: e.target.value }))}
             options={[
               { value: "", label: t("tracker.selectQuarterlyGoal") },
-              ...goals.map((g) => ({
+              ...planGoals.map((g) => ({
                 value: g.id,
                 label: `Q${g.quarter}: ${g.title}`,
               })),
@@ -875,12 +869,12 @@ export default function TrackerPage() {
                 { value: "", label: t("tracker.selectQuarterlyGoal") },
                 // Include the log's current goal even if it's completed (and thus
                 // filtered out of `goals`), so editing an old log keeps its goal.
-                ...(editData.goal_id && !goals.some((g) => g.id === editData.goal_id)
+                ...(editData.goal_id && !editGoals.some((g) => g.id === editData.goal_id)
                   ? allQuarterlyGoals
                       .filter((g) => g.id === editData.goal_id)
                       .map((g) => ({ value: g.id, label: `Q${g.quarter}: ${g.title}` }))
                   : []),
-                ...goals.map((g) => ({
+                ...editGoals.map((g) => ({
                   value: g.id,
                   label: `Q${g.quarter}: ${g.title}`,
                 })),

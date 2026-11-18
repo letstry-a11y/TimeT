@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useGoals } from "@/hooks/useGoals";
 import { useVisions } from "@/hooks/useVisions";
+import RewardShelf from "@/components/journal/RewardShelf";
 import { useTranslation } from "@/i18n";
 import { Goal, GoalCreate, GoalStatus } from "@/types";
 import { getCurrentYear, getCurrentQuarter, getStatusLabel, getStatusColor, formatDuration } from "@/lib/utils";
@@ -19,6 +20,7 @@ export default function GoalsPage() {
   const currentYear = getCurrentYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(null);
+  const [justCompleted, setJustCompleted] = useState("");
 
   // 不传递 quarter 参数，获取所有目标，然后在前端筛选
   const { goals, isLoading, createGoal, updateGoal, deleteGoal, refetch } = useGoals({
@@ -176,6 +178,10 @@ export default function GoalsPage() {
 
   const handleStatusChange = async (goalId: string, status: GoalStatus) => {
     await updateGoal(goalId, { status });
+    if (status === "completed") {
+      setJustCompleted(goalId);
+      document.getElementById("rewards")?.scrollIntoView({ block: "start" });
+    }
   };
 
   const handleMoveYearlyGoal = async (goalId: string, direction: 'up' | 'down') => {
@@ -248,6 +254,7 @@ export default function GoalsPage() {
       </div>
 
       {/* Filters */}
+      <RewardShelf year={selectedYear} goals={goals} justCompleted={justCompleted}/>
       <Card className="p-4">
         <div className="flex gap-4 items-center">
           <Select

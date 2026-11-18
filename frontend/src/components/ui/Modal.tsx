@@ -2,7 +2,8 @@
 
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
+import { useTranslation } from "@/i18n";
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,14 +14,30 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalProps) {
+  const { isZh } = useTranslation();
+  const panel = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panel.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); close.current(); }
+      if (event.key !== "Tab" || !panel.current) return;
+      const stops = panel.current.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]");
+      const first = stops[0], last = stops[stops.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { event.preventDefault(); last?.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = "unset";
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = overflow;
+      previous?.focus();
     };
   }, [isOpen]);
 
@@ -39,6 +56,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
         onClick={onClose}
       />
       <div
+        ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined}
         className={cn(
           "relative bg-white rounded-xl shadow-xl w-full mx-4 max-h-[90vh] overflow-auto",
           sizes[size]
@@ -46,9 +64,10 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
       >
         {title && (
           <div className="flex items-center justify-between p-4 border-b">
-            <h3 className="text-lg font-semibold">{title}</h3>
+            <h3 id={titleId} className="text-lg font-semibold">{title}</h3>
             <button
               onClick={onClose}
+              aria-label={isZh ? "关闭" : "Close"}
               className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X className="h-5 w-5" />

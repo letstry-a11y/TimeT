@@ -26,10 +26,10 @@ def upgrade() -> None:
         sa.Column('email', sa.String(255), nullable=False),
         sa.Column('username', sa.String(50), nullable=False),
         sa.Column('hashed_password', sa.String(255), nullable=False),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
-        sa.Column('is_superuser', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column('is_superuser', sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_users'))
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
@@ -46,9 +46,9 @@ def upgrade() -> None:
         sa.Column('color', sa.String(7), nullable=True),
         sa.Column('icon', sa.String(50), nullable=True),
         sa.Column('sort_order', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('is_archived', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
+        sa.Column('is_archived', sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_visions_user_id_users'), ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_visions'))
     )
@@ -73,9 +73,9 @@ def upgrade() -> None:
         sa.Column('progress_percentage', sa.Numeric(5, 2), nullable=False, server_default='0'),
         sa.Column('color', sa.String(7), nullable=True),
         sa.Column('sort_order', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('is_archived', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
+        sa.Column('is_archived', sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['parent_id'], ['goals.id'], name=op.f('fk_goals_parent_id_goals'), ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_goals_user_id_users'), ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['vision_id'], ['visions.id'], name=op.f('fk_goals_vision_id_visions'), ondelete='SET NULL'),
@@ -95,8 +95,8 @@ def upgrade() -> None:
         sa.Column('due_date', sa.Date(), nullable=True),
         sa.Column('completed_at', sa.DateTime(), nullable=True),
         sa.Column('sort_order', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['goal_id'], ['goals.id'], name=op.f('fk_tasks_goal_id_goals'), ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_tasks_user_id_users'), ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_tasks'))
@@ -115,9 +115,9 @@ def upgrade() -> None:
         sa.Column('duration_minutes', sa.Numeric(10, 2), nullable=True),
         sa.Column('note', sa.Text(), nullable=True),
         sa.Column('tags', sa.String(500), nullable=True),
-        sa.Column('is_running', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('now()')),
+        sa.Column('is_running', sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['goal_id'], ['goals.id'], name=op.f('fk_time_logs_goal_id_goals'), ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], name=op.f('fk_time_logs_task_id_tasks'), ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_time_logs_user_id_users'), ondelete='CASCADE'),
@@ -145,9 +145,9 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
 
-    # Drop enums
-    op.execute('DROP TYPE IF EXISTS timelogtype')
-    op.execute('DROP TYPE IF EXISTS taskpriority')
-    op.execute('DROP TYPE IF EXISTS taskstatus')
-    op.execute('DROP TYPE IF EXISTS goalstatus')
-    op.execute('DROP TYPE IF EXISTS goaltype')
+    if op.get_bind().dialect.name == 'postgresql':
+        op.execute('DROP TYPE IF EXISTS timelogtype')
+        op.execute('DROP TYPE IF EXISTS taskpriority')
+        op.execute('DROP TYPE IF EXISTS taskstatus')
+        op.execute('DROP TYPE IF EXISTS goalstatus')
+        op.execute('DROP TYPE IF EXISTS goaltype')

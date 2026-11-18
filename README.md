@@ -1,12 +1,15 @@
 # TimeTracker - Goal-Oriented Time Tracking System
 
-A comprehensive time tracking system built with FastAPI and PostgreSQL, featuring vision-goal hierarchy management.
+A personal time journal built with FastAPI and Next.js. The local Docker stack serves the app through Nginx and keeps SQLite data in the `timetracker_backend_data` volume.
 
 ## Features
 
 - **Vision Management**: Define long-term visions and track progress
 - **Goal Hierarchy**: Support for yearly and quarterly goals with parent-child relationships
 - **Time Tracking**: Real-time clock-in/out and manual time entry
+- **Time journal** (`/dashboard`): Log goal work, travel, rest or everyday activities. Pick an open interval to backfill or confirm a plan with its actual times.
+- **Goals and rewards** (`/goals#rewards`): Collect one personal reward per explicitly completed goal and optionally keep a note of the outcome.
+- **Periodic reviews** (`/reviews`): Compare weeks, months, quarters, years and five-year blocks, add a reflection and a next step, and save a private version or export Markdown. Archived versions retain the figures visible at the time of saving.
 - **Reports**: Vision alignment and goal progress reports
 - **Async Tasks**: Celery-based background task processing
 
@@ -14,7 +17,7 @@ A comprehensive time tracking system built with FastAPI and PostgreSQL, featurin
 
 ### Backend
 - **Framework**: FastAPI + Python 3.10+
-- **Database**: PostgreSQL 14+
+- **Database**: SQLite in the local Docker deployment, PostgreSQL supported for development
 - **ORM**: SQLAlchemy 2.0 (Async)
 - **Migrations**: Alembic
 - **Task Queue**: Celery + Redis

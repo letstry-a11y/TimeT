@@ -56,7 +56,7 @@ async def get_goals(
     if not include_archived:
         query = query.where(Goal.is_archived.is_(False))
 
-    query = query.order_by(Goal.sort_order, Goal.created_at.desc())
+    query = query.order_by(Goal.sort_order, Goal.created_at.desc(), Goal.id)
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     return list(result.scalars().all())

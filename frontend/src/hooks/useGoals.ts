@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 const t = (key: string) => getTranslation(useLanguageStore.getState().locale, key);
 
 interface GoalFilters {
+  include_archived?: boolean;
   vision_id?: string;
   goal_type?: string;
   year?: number;
@@ -20,12 +21,13 @@ export function useGoals(filters?: GoalFilters) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { vision_id, goal_type, year, quarter, parent_id, include_archived } = filters || {};
 
   const fetchGoals = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await goalApi.list(filters);
+      const data = await goalApi.list({ vision_id, goal_type, year, quarter, parent_id, include_archived });
       setGoals(data);
     } catch (err: any) {
       setError(err.message);
@@ -33,7 +35,7 @@ export function useGoals(filters?: GoalFilters) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters?.vision_id, filters?.goal_type, filters?.year, filters?.quarter, filters?.parent_id]);
+  }, [vision_id, goal_type, year, quarter, parent_id, include_archived]);
 
   const createGoal = async (data: GoalCreate) => {
     try {

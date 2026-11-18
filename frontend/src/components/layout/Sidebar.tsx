@@ -2,111 +2,94 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
 import {
-  LayoutDashboard,
-  Target,
-  Flag,
-  Clock,
   BarChart3,
-  LogOut,
+  BookMarked,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Compass,
+  Flag,
+  LogOut,
+  Menu,
+  PanelsTopLeft,
+  X,
 } from "lucide-react";
-import { useAuthStore } from "@/store/auth";
-import { useState } from "react";
-import { useTranslation } from "@/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "@/i18n";
+import { useAuthStore } from "@/store/auth";
 
-const navigationItems = [
-  { key: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { key: "nav.visions", href: "/visions", icon: Target },
-  { key: "nav.goals", href: "/goals", icon: Flag },
-  { key: "nav.tracker", href: "/tracker", icon: Clock },
-  { key: "nav.reports", href: "/reports", icon: BarChart3 },
+const pages = [
+  { path: "/dashboard", icon: CalendarDays, zh: "时间手帐", en: "Time journal" },
+  { path: "/tracker", icon: Clock, zh: "计时与计划", en: "Timer & plans" },
+  { path: "/goals", icon: Flag, zh: "目标与奖励", en: "Goals & rewards" },
+  { path: "/reviews", icon: BookMarked, zh: "周期复盘", en: "Periodic reviews" },
+  { path: "/visions", icon: Compass, zh: "我的愿景", en: "Visions" },
+  { path: "/overview", icon: PanelsTopLeft, zh: "目标概览", en: "Goal overview" },
+  { path: "/reports", icon: BarChart3, zh: "数据报表", en: "Reports" },
 ];
 
 export function Sidebar() {
-  const pathname = usePathname();
+  const path = usePathname();
+  const { isZh: zh, t } = useTranslation();
   const { user, logout } = useAuthStore();
-  const [collapsed, setCollapsed] = useState(false);
-  const { t } = useTranslation();
-
-  const handleLogout = () => {
-    logout();
-    window.location.href = "/login";
-  };
-
+  const [small, setSmall] = useState(false);
+  const [open, setOpen] = useState(false);
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 h-full bg-white border-r border-gray-200 flex flex-col transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
-      )}
-    >
-      {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
-        {!collapsed && (
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <Clock className="h-8 w-8 text-primary-600" />
-            <span className="font-bold text-xl">TimeTracker</span>
-          </Link>
-        )}
+    <aside className={["journal-sidebar", small ? "narrow" : "", open ? "mobile-open" : ""].join(" ")}>
+      <div className="brand-row">
+        <Link href="/dashboard" className="brand" title="TimeTracker" onClick={() => setOpen(false)}>
+          <span>
+            <Clock size={21} strokeWidth={2.25} />
+          </span>
+          <b>TimeTracker</b>
+        </Link>
         <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 hover:bg-gray-100 rounded-lg"
+          className="desktop-toggle"
+          onClick={() => setSmall(!small)}
+          aria-label={zh ? "切换导航宽度" : "Toggle navigation width"}
         >
-          {collapsed ? (
-            <ChevronRight className="h-5 w-5" />
-          ) : (
-            <ChevronLeft className="h-5 w-5" />
-          )}
+          {small ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+        </button>
+        <button
+          className="mobile-toggle"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-label={zh ? "导航菜单" : "Navigation menu"}
+        >
+          {open ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 py-4 px-2">
-        <ul className="space-y-1">
-          {navigationItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <li key={item.key}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-                    isActive
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  )}
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span>{t(item.key)}</span>}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      <nav aria-label={zh ? "主导航" : "Main navigation"}>
+        {pages.map((p) => (
+          <Link
+            href={p.path}
+            key={p.path}
+            title={zh ? p.zh : p.en}
+            aria-current={path === p.path ? "page" : undefined}
+            onClick={() => setOpen(false)}
+          >
+            <p.icon size={19} />
+            <span>{zh ? p.zh : p.en}</span>
+          </Link>
+        ))}
       </nav>
-
-      {/* User */}
-      <div className="p-4 border-t border-gray-200">
-        {!collapsed && user && (
-          <div className="mb-3 px-2">
-            <p className="font-medium text-sm text-gray-900 truncate">{user.username}</p>
-            <p className="text-xs text-gray-500 truncate">{user.email}</p>
-          </div>
-        )}
-        <LanguageSwitcher collapsed={collapsed} />
+      <div className="sidebar-bottom">
+        <div className="account-name">{user?.username}</div>
+        <LanguageSwitcher collapsed={small} />
         <button
-          onClick={handleLogout}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full transition-colors mt-1",
-            collapsed && "justify-center"
-          )}
+          className="logout"
+          title={t("nav.logout")}
+          aria-label={t("nav.logout")}
+          onClick={() => {
+            logout();
+            window.location.href = "/login";
+          }}
         >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span>{t('nav.logout')}</span>}
+          <LogOut size={17} />
+          <span>{t("nav.logout")}</span>
         </button>
       </div>
     </aside>

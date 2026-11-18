@@ -22,7 +22,8 @@ from app.services.time_tracking import (
     update_goal_accumulated_hours,
 )
 from app.models.user import User
-from app.models.time_log import TimeLogType
+from app.models.time_log import TimeLogStatus, TimeLogType
+from app.services.journal import assert_free_interval
 
 router = APIRouter()
 
@@ -151,6 +152,7 @@ async def stop_clock_in(
 @router.post("", response_model=TimeLogResponse, status_code=status.HTTP_201_CREATED)
 async def create_manual_entry(
     timelog_in: TimeLogManual,
+    check_overlap: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -161,6 +163,9 @@ async def create_manual_entry(
     # Validate goal
     await validate_goal_for_tracking(db, current_user.id, timelog_in.goal_id)
 
+    if check_overlap:
+        await assert_free_interval(db, current_user.id, timelog_crud.to_naive_utc(timelog_in.start_time),
+                                   timelog_crud.to_naive_utc(timelog_in.end_time))
     timelog = await timelog_crud.create_manual_entry(db, current_user.id, timelog_in)
 
     # Update goal accumulated hours
@@ -192,6 +197,7 @@ async def create_planned_entry(
 async def update_timelog_status(
     timelog_id: uuid.UUID,
     status_update: TimeLogStatusUpdate,
+    check_overlap: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -212,6 +218,8 @@ async def update_timelog_status(
             detail="Only planned tasks can have their status updated",
         )
 
+    if check_overlap and status_update.status == TimeLogStatus.COMPLETED and timelog.end_time:
+        await assert_free_interval(db, current_user.id, timelog.start_time, timelog.end_time, timelog.id)
     timelog = await timelog_crud.update_status(db, timelog, status_update.status)
 
     # Update goal accumulated hours when status changes
@@ -241,6 +249,7 @@ async def get_timelog(
 async def update_timelog(
     timelog_id: uuid.UUID,
     timelog_in: TimeLogUpdate,
+    check_overlap: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -263,6 +272,13 @@ async def update_timelog(
         await validate_goal_for_tracking(db, current_user.id, timelog_in.goal_id)
 
     old_goal_id = timelog.goal_id
+    if check_overlap and (timelog_in.start_time or timelog_in.end_time) and (
+        timelog.log_type != TimeLogType.PLANNED or timelog.status == TimeLogStatus.COMPLETED
+    ):
+        start = timelog_crud.to_naive_utc(timelog_in.start_time) or timelog.start_time
+        end = timelog_crud.to_naive_utc(timelog_in.end_time) or timelog.end_time
+        if end and start < end and (start, end) != (timelog.start_time, timelog.end_time):
+            await assert_free_interval(db, current_user.id, start, end, timelog.id)
     timelog = await timelog_crud.update_timelog(db, timelog, timelog_in)
 
     # Update goal accumulated hours for both old and new goals
