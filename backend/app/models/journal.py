@@ -1,11 +1,20 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Date, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.db.types import GUID
+
+
+class JournalAvailability(Base):
+    """Daily Beijing planning window, from the selected minute to midnight."""
+    __tablename__ = "journal_availability"
+    __table_args__ = (CheckConstraint("start_minute >= 0 AND start_minute < 1440", name="start_minute"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    start_minute: Mapped[int]
 
 
 class DailyActivity(Base):

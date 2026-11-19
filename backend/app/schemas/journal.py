@@ -10,6 +10,10 @@ LifeCategory = Literal["rest", "travel", "daily", "other"]
 Anchor = Annotated[date, Field(ge=date(1900, 1, 1), le=date(2200, 12, 31))]
 
 
+class Availability(BaseModel):
+    start_minute: int = Field(strict=True, ge=0, lt=1440)
+
+
 class ActivityInput(BaseModel):
     category: LifeCategory
     start_time: datetime

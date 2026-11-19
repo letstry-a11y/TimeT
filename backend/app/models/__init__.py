@@ -3,7 +3,7 @@ from app.models.vision import Vision
 from app.models.goal import Goal, GoalType, GoalStatus
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.models.time_log import TimeLog, TimeLogType
-from app.models.journal import DailyActivity, GoalReward, ReviewSnapshot
+from app.models.journal import DailyActivity, GoalReward, JournalAvailability, ReviewSnapshot
 
 __all__ = [
     "User",
@@ -18,5 +18,6 @@ __all__ = [
     "TimeLogType",
     "DailyActivity",
     "GoalReward",
+    "JournalAvailability",
     "ReviewSnapshot",
 ]

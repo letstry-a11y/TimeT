@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Activity, Compass, Flag, Gift } from "lucide-react";
-import { Review, duration, name, dayLabel, stepText } from "@/lib/journal";
+import { Review, clockMinute, duration, name, dayLabel, stepText } from "@/lib/journal";
 import { getStatusLabel } from "@/lib/utils";
 
 export function comparison(r: Review, zh: boolean) {
@@ -13,6 +13,16 @@ export function comparison(r: Review, zh: boolean) {
   return zh
     ? `比上一可比时段${delta > 0 ? "多" : "少"} ${d}`
     : `${d} ${delta > 0 ? "more" : "less"} than the comparison period`;
+}
+
+function planningSummary(r: Review, zh: boolean) {
+  if (!r.availability) return "";
+  const window = clockMinute(r.availability.start_minute) + "–24:00";
+  const elapsed = duration(r.availability.elapsed_minutes, zh);
+  const recorded = duration(r.availability.recorded_minutes, zh);
+  return zh
+    ? `每日可用时段 ${window}。本期已过 ${elapsed} 可用时间，其中已记录 ${recorded}。`
+    : `Daily planning window ${window}. This period includes ${elapsed} of elapsed planning time, with ${recorded} recorded within it.`;
 }
 
 export default function ReviewBody({ r, zh }: { r: Review; zh: boolean }) {
@@ -96,6 +106,7 @@ export default function ReviewBody({ r, zh }: { r: Review; zh: boolean }) {
         </section>
         <section className="paper">
           <h2>{words("时间用在了哪里", "Where time went")}</h2>
+          {r.availability && <p className="muted">{planningSummary(r, zh)}</p>}
           <p className="muted">
             {words("目标", "Goals")} {duration(r.goal_minutes, zh)} · {words("生活", "Everyday")}{" "}
             {duration(r.life_minutes, zh)}
@@ -235,6 +246,7 @@ export function exportReview(r: Review, reflection: string, next: string, zh: bo
     `${w("已记录", "Recorded")}: ${duration(r.minutes, zh)} (${r.days} ${w("个记录日", "active days")}, ${r.entries} ${w("段", "entries")})`,
     `${w("对照时段", "Comparison")}: ${r.previous_start} — ${r.previous_end} · ${duration(r.previous_minutes, zh)} · ${comparison(r, zh)}`,
     `${w("目标投入 / 生活", "Goal / everyday time")}: ${duration(r.goal_minutes, zh)} / ${duration(r.life_minutes, zh)}`,
+    ...(r.availability ? [planningSummary(r, zh)] : []),
     `${w("总时长扣除重叠", "Overlap excluded from total")}: ${duration(r.overlap_minutes || 0, zh)}`,
     `${w("计划（完成 / 待确认 / 跳过）", "Plans (confirmed / pending / skipped)")}: ${r.plans.completed} / ${r.plans.pending} / ${r.plans.skipped}`,
     "## " + w("时间趋势", "Time trend"),

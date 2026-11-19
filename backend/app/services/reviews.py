@@ -10,16 +10,23 @@ from sqlalchemy import select
 
 from app.models.goal import Goal, GoalStatus, GoalType
 from app.models.journal import GoalReward
-from app.services.journal import DAY, actual_intervals, entries_between, local_day, midnight_utc, minutes, overlap_minutes, period_window, union
+from app.services.journal import (
+    DAY, actual_intervals, availability_start, entries_between, local_day, midnight_utc,
+    minutes, overlap_minutes, period_window, union,
+)
 
 
-def daily_minutes(intervals):
+def daily_minutes(intervals, start_minute=0):
     totals = defaultdict(float)
+    opening_offset = timedelta(minutes=start_minute)
     for left, end in union(intervals):
         while left < end:
             day = local_day(left)
-            right = min(end, midnight_utc(day + DAY))
-            totals[day] += (right - left).total_seconds() / 60
+            midnight = midnight_utc(day)
+            right = min(end, midnight + DAY)
+            available_left = max(left, midnight + opening_offset)
+            if right > available_left:
+                totals[day] += (right - available_left).total_seconds() / 60
             left = right
     return totals
 
@@ -154,8 +161,16 @@ async def build_review(db, user_id, kind, anchor, now=None):
             steps.append({"kind": "repeat_or_adjust", "title": split[0]["title"], "category": split[0]["category"],
                           "minutes": split[0]["minutes"]})
     data["steps"] = steps[:3]
+    start_minute = await availability_start(db, user_id)
+    if start_minute:
+        inside = daily_minutes(((a, b) for _, a, b in actual), start_minute)
+        data["availability"] = {"start_minute": start_minute, "recorded_minutes": round(sum(inside.values()), 2)}
     payload = jsonable_encoder(data)
     serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     payload["fingerprint"] = hashlib.sha256(serialized.encode()).hexdigest()
+    if start_minute:
+        # Like evaluated_at, the passing of time alone does not create a new archive version.
+        elapsed = daily_minutes([(lower, upper)], start_minute)
+        payload["availability"]["elapsed_minutes"] = round(sum(elapsed.values()), 2)
     payload["evaluated_at"] = now.replace(tzinfo=timezone.utc).isoformat()
     return payload

@@ -11,13 +11,29 @@ from app.crud.goal import get_goal
 from app.crud.timelog import to_naive_utc
 from app.db.session import get_db
 from app.models.goal import Goal, GoalStatus
-from app.models.journal import DailyActivity, GoalReward, ReviewSnapshot
+from app.models.journal import DailyActivity, GoalReward, JournalAvailability, ReviewSnapshot
 from app.models.user import User
-from app.schemas.journal import ActivityInput, Anchor, ArchiveInput, Period, RewardInput
-from app.services.journal import DAY, assert_free_interval, day_summary, entries_between, local_day, midnight_utc, period_window
+from app.schemas.journal import ActivityInput, Anchor, ArchiveInput, Availability, Period, RewardInput
+from app.services.journal import (
+    DAY, assert_free_interval, availability_start, day_summary, entries_between,
+    local_day, lock_journal_user, midnight_utc, period_window,
+)
 from app.services.reviews import build_review, focus_options
 
 router = APIRouter()
+
+
+@router.get("/availability", response_model=Availability)
+async def get_availability(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    return Availability(start_minute=await availability_start(db, user.id))
+
+
+@router.put("/availability", response_model=Availability)
+async def set_availability(body: Availability, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await lock_journal_user(db, user.id)
+    await db.merge(JournalAvailability(user_id=user.id, start_minute=body.start_minute))
+    await db.commit()
+    return body
 
 
 @router.get("/day")
@@ -25,7 +41,7 @@ async def get_day(day: Anchor, db: AsyncSession = Depends(get_db), user: User = 
     now = datetime.utcnow()
     start = midnight_utc(day)
     entries = await entries_between(db, user.id, start, start + DAY)
-    summary = day_summary(entries, day, now)
+    summary = day_summary(entries, day, now, await availability_start(db, user.id))
     summary["goals"] = await focus_options(db, user.id, day, now)
     return summary
 

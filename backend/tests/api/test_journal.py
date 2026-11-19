@@ -13,7 +13,7 @@ from app.main import app
 from app.models.goal import Goal, GoalStatus, GoalType
 from app.models.time_log import TimeLog, TimeLogStatus, TimeLogType
 from app.models.user import User
-from app.services.journal import period_window
+from app.services.journal import day_summary, period_window
 from app.services.reviews import build_review
 
 API = "/api/v1/journal"
@@ -66,6 +66,62 @@ async def goal(db_session, test_user):
 ])
 def test_period_boundaries(kind, anchor, expected):
     assert period_window(kind, anchor) == expected
+
+
+@pytest.mark.parametrize("cutoff,gaps", [
+    (datetime(2024, 2, 1, 21, 59), []),  # 05:59 in Beijing
+    (datetime(2024, 2, 1, 22), []),
+    (datetime(2024, 2, 1, 22, 1), [{"start_minute": 360, "end_minute": 361}]),
+    (datetime(2024, 2, 2, 16), [{"start_minute": 360, "end_minute": 1440}]),
+])
+def test_available_gaps_start_at_six(cutoff, gaps):
+    assert day_summary([], date(2024, 2, 2), cutoff, 360)["gaps"] == gaps
+
+
+async def test_personal_window_preserves_night_records_and_snapshots(authenticated_client, db_session, test_user):
+    c = authenticated_client
+    window = API + "/availability"
+    assert (await c.get(window)).json() == {"start_minute": 0}
+    for start, end in [("2024-02-01T23:45", "2024-02-02T00:20"), ("2024-02-02T05:45", "2024-02-02T06:15")]:
+        r = await c.put(API + "/activities/" + str(uuid4()), json={
+            "category": "daily", "start_time": start + "+08:00", "end_time": end + "+08:00",
+        })
+        assert r.status_code == 200
+    params = {"kind": "week", "anchor": "2024-02-02"}
+    previous = (await c.get(API + "/review", params=params)).json()["report"]
+    snapshot = (await c.post(API + "/archives", json={
+        **params, "base_version": 0, "fingerprint": previous["fingerprint"], "evaluated_at": previous["evaluated_at"],
+    })).json()
+    for invalid in (-1, 1440):
+        assert (await c.put(window, json={"start_minute": invalid})).status_code == 422
+    for _ in range(2):
+        assert (await c.put(window, json={"start_minute": 360})).json() == {"start_minute": 360}
+    assert (await c.get(window)).json() == {"start_minute": 360}
+    day = (await c.get(API + "/day?day=2024-02-02")).json()
+    assert day["available_start_minute"] == 360 and day["actual_minutes"] == 50
+    assert day["gaps"] == [{"start_minute": 375, "end_minute": 1440}]
+    review = (await c.get(API + "/review", params=params)).json()["report"]
+    assert review["minutes"] == previous["minutes"] == 65
+    assert review["availability"] == {"start_minute": 360, "elapsed_minutes": 7 * 1080, "recorded_minutes": 30}
+    assert review["fingerprint"] != previous["fingerprint"]
+    assert (await c.get(API + "/archives/" + snapshot["id"])).json()["report"] == previous
+    # The Friday under review starts with zero available minutes until 06:00.
+    async def partial(hour, minute):
+        return await build_review(db_session, test_user.id, "week", date(2024, 2, 2), datetime(2024, 2, 1, hour, minute))
+    morning = await partial(21, 30)
+    assert morning["availability"]["elapsed_minutes"] == 4 * 1080
+    after = await partial(22, 30)
+    assert after["availability"]["elapsed_minutes"] == 4 * 1080 + 30
+    assert after["availability"]["recorded_minutes"] == 30
+    assert (await partial(22, 31))["fingerprint"] == after["fingerprint"]
+    other = User(email="window@example.com", username="window", hashed_password="unused")
+    db_session.add(other)
+    await db_session.commit()
+    headers = {"Authorization": "Bearer " + create_access_token(data={"sub": str(other.id)})}
+    assert (await c.get(window, headers=headers)).json() == {"start_minute": 0}
+    assert (await c.get(API + "/day?day=2024-02-02", headers=headers)).json()["gaps"] == [
+        {"start_minute": 0, "end_minute": 1440}
+    ]
 
 
 async def test_cross_midnight_overlap_plans_and_running(authenticated_client, db_session, goal, test_user):

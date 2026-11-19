@@ -9,7 +9,7 @@ from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.goal import Goal
-from app.models.journal import DailyActivity
+from app.models.journal import DailyActivity, JournalAvailability
 from app.models.time_log import TimeLog, TimeLogStatus, TimeLogType
 from app.models.user import User
 
@@ -82,10 +82,18 @@ async def entries_between(db: AsyncSession, user_id: UUID, start: datetime, end:
     return sorted(entries, key=lambda e: (e.start_time, str(e.id)))
 
 
-async def assert_free_interval(db, user_id, start, end, exclude=None):
-    # Serialize guarded captures until the caller's commit. A no-op UPDATE
-    # also acquires a write lock in SQLite, where SELECT FOR UPDATE does not.
+async def lock_journal_user(db, user_id):
+    # A no-op UPDATE also acquires a write lock in SQLite, where SELECT FOR UPDATE does not.
     await db.execute(update(User).where(User.id == user_id).values(updated_at=User.updated_at))
+
+
+async def availability_start(db: AsyncSession, user_id: UUID) -> int:
+    setting = await db.get(JournalAvailability, user_id)
+    return setting.start_minute if setting else 0
+
+
+async def assert_free_interval(db, user_id, start, end, exclude=None):
+    await lock_journal_user(db, user_id)
     entries = await entries_between(db, user_id, start, end)
     if any(e.id != exclude and e.state != "skipped" for e in entries):
         raise HTTPException(409, "This interval already contains an entry or plan")
@@ -121,13 +129,14 @@ def actual_intervals(entries, start, end):
                 yield entry, left, right
 
 
-def day_summary(entries, day, now):
+def day_summary(entries, day, now, start_minute=0):
     start = midnight_utc(day)
+    opening = start + timedelta(minutes=start_minute)
     cutoff = max(start, min(start + DAY, now))
     actual = list(actual_intervals(entries, start, cutoff))
-    busy = [(max(start, e.start_time), min(cutoff, e.end_time or now))
+    busy = [(max(opening, e.start_time), min(cutoff, e.end_time or now))
             for e in entries if e.state != "skipped"]
-    cursor = start
+    cursor = opening
     gaps = []
     for left, right in [*union(busy), (cutoff, cutoff)]:
         # Round inward. Sub-minute edges never suggest overlapping a finished log.
@@ -138,7 +147,7 @@ def day_summary(entries, day, now):
         cursor = max(cursor, right)
     covered = minutes((a, b) for _, a, b in actual)
     return {
-        "day": day, "entries": entries, "gaps": gaps,
+        "day": day, "entries": entries, "gaps": gaps, "available_start_minute": start_minute,
         "actual_minutes": covered, "overlap_minutes": overlap_minutes(actual, covered),
         "goal_minutes": minutes((a, b) for e, a, b in actual if e.goal_id),
         "life_minutes": minutes((a, b) for e, a, b in actual if not e.goal_id),

@@ -65,6 +65,13 @@ function Timeline({ value, zh }: { value: JournalDay; zh: boolean }) {
         <div className="time-track" key={i}>
           <span>{track.label}</span>
           <div className="time-rail">
+            {value.available_start_minute > 0 && (
+              <span
+                className="quiet-hours"
+                aria-hidden="true"
+                style={{ width: value.available_start_minute / 14.4 + "%" }}
+              />
+            )}
             {track.entries.map((e) => {
               const [a, b] = bounds(e, value.day);
               return (
@@ -90,6 +97,12 @@ function Timeline({ value, zh }: { value: JournalDay; zh: boolean }) {
         <span>18:00</span>
         <span>24:00</span>
       </div>
+      {value.available_start_minute > 0 && (
+        <p className="planning-window">
+          {zh ? "每日可用时段" : "Daily planning window"} {clockMinute(value.available_start_minute)}–24:00
+          {" · "}{duration(1440 - value.available_start_minute, zh)}
+        </p>
+      )}
     </div>
   );
 }
@@ -134,6 +147,23 @@ export default function Daybook() {
     week = weekly.data?.report;
   const focus = data?.goals.find((g) => g.id === selectedFocus) || data?.goals[0];
   const nowMs = Date.now();
+  const startMinute = data?.available_start_minute ?? 0;
+  const midnight = Date.parse(day + "T00:00:00+08:00");
+  const minuteOfDay = (nowMs - midnight) / 60000;
+  const outsideFocusWindow = startMinute > 0 && (minuteOfDay < startMinute || minuteOfDay + 15 > 1440);
+  useEffect(() => {
+    if (!startMinute || day !== today()) return;
+    const now = Date.now();
+    const nextMidnight = midnight + 1440 * 60000;
+    const boundaries = [midnight + startMinute * 60000, nextMidnight - 15 * 60000 + 1, nextMidnight];
+    const next = Math.min(...boundaries.filter((boundary) => boundary > now));
+    if (!Number.isFinite(next)) return;
+    const timer = window.setTimeout(() => {
+      setDay(today());
+      setRefresh((v) => v + 1);
+    }, next - now + 20);
+    return () => window.clearTimeout(timer);
+  }, [day, midnight, startMinute, refresh]);
   const running = data?.entries.find((e) => e.state === "running");
   const nextPlan = data?.entries.find(
     (e) => e.state === "planned" && e.end_time && parseUtcMs(e.end_time) > nowMs,
@@ -150,9 +180,11 @@ export default function Daybook() {
     setRefresh((v) => v + 1);
   };
   const add = () => {
-    const now = Math.floor((Date.now() - Date.parse(day + "T00:00:00+08:00")) / 60000);
+    const now = Math.floor((Date.now() - midnight) / 60000);
     const last = Math.min(1440, now);
-    setPreset({ start: localInput(day, Math.max(0, last - 25)), end: localInput(day, last) });
+    setPreset(last > startMinute
+      ? { start: localInput(day, Math.max(startMinute, last - 25)), end: localInput(day, last) }
+      : { start: "", end: "" });
   };
   const act = async (entry: Entry, verb: "confirm" | "remove") => {
     if (pending) return;
@@ -446,6 +478,12 @@ export default function Daybook() {
                         {words("查看计划", "View plan")} <ArrowRight size={14} />
                       </Link>
                     </>
+                  ) : outsideFocusWindow ? (
+                    <p>
+                      {minuteOfDay < startMinute
+                        ? words("今天的可用时段从 ", "Today's planning window opens at ") + clockMinute(startMinute) + (zh ? " 开始。" : ".")
+                        : words("今天的可用时段即将结束。", "Today's planning window is almost over.")}
+                    </p>
                   ) : focus ? (
                     <>
                       <label className="sr-only" htmlFor="focus-goal">

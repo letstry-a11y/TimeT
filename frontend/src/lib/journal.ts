@@ -72,6 +72,7 @@ export interface FocusGoal {
 }
 export interface JournalDay {
   day: string;
+  available_start_minute: number;
   actual_minutes: number;
   goal_minutes: number;
   life_minutes: number;
@@ -104,6 +105,7 @@ export interface Review {
   previous_end: string;
   minutes: number;
   previous_minutes: number;
+  availability?: { start_minute: number; elapsed_minutes: number; recorded_minutes: number };
   days: number;
   entries: number;
   goal_minutes: number;
