@@ -136,6 +136,18 @@ export interface Translations {
 
   tracker: {
     title: string;
+    sessionTimer: string;
+    running: string;
+    elapsed: string;
+    browse: string;
+    date: string;
+    prevDay: string;
+    nextDay: string;
+    goalRecords: string;
+    loggedGoalTime: string;
+    pendingPlans: string;
+    openJournal: string;
+    retry: string;
     description: string;
     start: string;
     stop: string;

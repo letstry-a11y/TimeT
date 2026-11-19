@@ -1,0 +1,170 @@
+.tracker-clock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 24px;
+}
+.tracker-clock .big-duration {
+  margin: 0;
+  letter-spacing: -0.045em;
+}
+.tracker-clock .solid-button {
+  min-width: 84px;
+}
+.tracker-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tracker-live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.tracker-fields,
+.tracker-time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+.tracker-fields > *,
+.tracker-time-fields > * {
+  min-width: 0;
+}
+.tracker-page :is(.tracker-fields, .journal-form) label,
+.tracker-current-goal small,
+.tracker-totals dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.tracker-page :is(.tracker-fields, .journal-form) :is(input, select) {
+  min-width: 0;
+  min-height: 40px;
+  padding: 7px 10px;
+  color: var(--ink);
+  border: 1px solid #c6d5c9;
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 14px;
+}
+.tracker-page :is(.tracker-fields, .journal-form) :is(input, select):focus {
+  border-color: var(--green);
+  box-shadow: none;
+}
+.tracker-current-goal {
+  display: grid;
+  gap: 3px;
+  align-self: center;
+  overflow-wrap: anywhere;
+}
+.tracker-view {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+.tracker-view .section-title,
+.tracker-view .day-picker,
+.tracker-records .section-title {
+  flex-wrap: wrap;
+}
+.tracker-view .day-picker {
+  gap: 8px 12px;
+}
+.tracker-view .choice-strip button {
+  padding: 4px 10px;
+}
+.tracker-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 25px;
+}
+.tracker-totals dd {
+  font-size: 21px;
+  font-weight: 640;
+  font-variant-numeric: tabular-nums;
+}
+.tracker-day-heading {
+  margin-top: 18px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+.tracker-day-heading h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.tracker-records > .context-line {
+  margin-top: 6px;
+}
+.tracker-list li {
+  display: grid;
+  grid-template-columns: 43px 4px minmax(0, 1fr) auto auto;
+  gap: 12px;
+}
+.tracker-list li:last-child {
+  border-bottom: 0;
+}
+.tracker-list .entry-pin {
+  background: var(--green);
+}
+.tracker-list [data-state="pending"] .entry-pin {
+  background: #9981b1;
+}
+.tracker-list [data-state="not_completed"] .entry-pin {
+  background: #a2afa7;
+}
+.tracker-length {
+  grid-column: 4;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.tracker-list .entry-actions {
+  grid-column: 5;
+}
+.tracker-list .entry-actions button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+.tracker-list .tracker-delete:hover {
+  background: #f5e9e4;
+  color: #843e31;
+}
+.tracker-page [role="dialog"] {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 17px;
+}
+.tracker-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (min-width: 761px) and (max-width: 1080px), (max-width: 540px) {
+  .tracker-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .tracker-time-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tracker-list li {
+    grid-template-columns: 38px 4px minmax(0, 1fr) auto;
+    gap: 4px 8px;
+  }
+  .tracker-list .entry-actions {
+    grid-column: 3 / -1;
+    justify-self: end;
+  }
+  .tracker-list .entry-actions button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
