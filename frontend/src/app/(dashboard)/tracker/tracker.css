@@ -108,6 +108,12 @@
 .tracker-list li:last-child {
   border-bottom: 0;
 }
+.tracker-list li[aria-current="true"] {
+  background: var(--mint);
+  outline: 1px solid var(--green);
+  outline-offset: -1px;
+  scroll-margin-block: 4rem 1rem;
+}
 .tracker-list .entry-pin {
   background: var(--green);
 }

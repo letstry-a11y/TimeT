@@ -62,6 +62,30 @@ function toDateTimeLocal(stamp: string): string {
 export default function TrackerPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("day");
   const [currentDate, setCurrentDate] = useState(getBeijingNow);
+  const [entryAnchor, setEntryAnchor] = useState("");
+  const scrolledAnchor = useRef("");
+  useEffect(() => {
+    const readLocation = () => {
+      const day = new URLSearchParams(window.location.search).get("day");
+      if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) {
+        const date = new Date(day + "T00:00:00Z");
+        if (toDateString(date) === day) {
+          setCurrentDate(date);
+          setViewMode("day");
+        }
+      }
+      const anchor = window.location.hash.slice(1);
+      scrolledAnchor.current = "";
+      setEntryAnchor(anchor.startsWith("log-") ? anchor : "");
+    };
+    readLocation();
+    window.addEventListener("hashchange", readLocation);
+    window.addEventListener("popstate", readLocation);
+    return () => {
+      window.removeEventListener("hashchange", readLocation);
+      window.removeEventListener("popstate", readLocation);
+    };
+  }, []);
   const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
   const firstDay = viewMode === "day" ? currentDate : weekDates[0];
   const lastDay = viewMode === "day" ? currentDate : weekDates[6];
@@ -198,6 +222,15 @@ export default function TrackerPage() {
 
     return groups;
   }, [timelogs, currentDate, viewMode, weekDates]);
+
+  useEffect(() => {
+    if (!entryAnchor || isLoading || scrolledAnchor.current === entryAnchor) return;
+    const row = document.getElementById(entryAnchor);
+    if (row) {
+      row.scrollIntoView({ block: "nearest" });
+      scrolledAnchor.current = entryAnchor;
+    }
+  }, [entryAnchor, groupedLogs, isLoading]);
 
   const navigate = (direction: number) => {
     const move = viewMode === "day" ? direction : direction * 7;
@@ -436,7 +469,7 @@ export default function TrackerPage() {
         {error ? (
           <p className="empty-note" role="alert">
             {t("tracker.loadFailed")}{" "}
-            <button type="button" className="text-link" onClick={refetch}>
+            <button type="button" className="text-link" onClick={() => void refetch()}>
               {t("tracker.retry")}
             </button>
           </p>
@@ -480,6 +513,8 @@ export default function TrackerPage() {
                   return (
                     <li
                       key={log.id}
+                      id={`log-${log.id}`}
+                      aria-current={entryAnchor === `log-${log.id}` ? "true" : undefined}
                       data-kind={log.log_type}
                       data-state={log.is_running ? "running" : log.status}
                     >
